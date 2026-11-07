@@ -1,6 +1,6 @@
 """Beacon Data Pre-Cleaner for food banks — one page, three steps."""
 import os, json, pandas as pd, plotly.express as px, streamlit as st
-import clean as C, routing as R
+import clean as C, routing as R, report as R2
 import plotly.graph_objects as go
 
 st.set_page_config(page_title="Beacon Data Pre-Cleaner", page_icon="🧹", layout="wide")
@@ -16,19 +16,7 @@ def run_clean(user_bytes=None, id_col=None):
 
 @st.cache_data(show_spinner="Writing the report…")
 def report_text(t, i, s):
-    base = C.health_report(t, i, s)
-    key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
-    if not key or os.getenv("USE_GEMINI", "1") != "1": return base, "template"
-    try:
-        from google import genai
-        p = ("Rewrite this data health report for a food bank coordinator in plain English, under 250 words. "
-             "Keep every number exactly as given; add no new numbers, places, or claims. Keep these framings exactly: "
-             "'N tract-level issues plus one statewide CDC gap'; 'values corrected, gaps filled from USDA (labeled), everything else flagged, no original value invented'; "
-             "'left out of the ranking (for dorms/tiny size, for shaky estimates)'; and the data-integrity sentence.\n\n" + base)
-        client = genai.Client(api_key=key, http_options={"timeout": 150000})
-        return client.models.generate_content(model=os.getenv("GEMINI_MODEL", "gemini-3.8-flash"), contents=p).text, "gemini"
-    except Exception as e:
-        return base, f"template (Gemini error: {type(e).__name__})"
+    return R2.make_report(t, i, s)
 
 st.title("🧹 Beacon Data Pre-Cleaner")
 st.markdown("Public food-access data comes in separate files with blanks, shaky numbers and mixed years. **This tool combines and checks it for you, so you can trust what you act on.**")

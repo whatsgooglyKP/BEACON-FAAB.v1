@@ -62,3 +62,11 @@ def test_audit_trail():
     cap = issues[issues.what_we_did == "capped at 100"].iloc[0]
     assert cap.value_before == "121.50" and cap.value_after == "100"
     assert s["statewide_cdc"] == 2 and s["tract_issues"] == s["problems"] - 2
+
+def test_fill_is_labeled_and_logged():
+    src = _src(); src["acs"].loc[0, ["poverty_pct", "snap_households_pct"]] = np.nan
+    t, issues, s = clean(src)
+    r = t.iloc[0]
+    assert np.isnan(r.poverty_pct) and r.poverty_pct_best == 30.0 and r.poverty_snap_source == "USDA Atlas (older years)"
+    f = issues[issues.type == "mixed years"].iloc[0]
+    assert f.value_before == "(blank)" and "poverty 30.0%" in f.value_after and s["filled"] == 1

@@ -45,3 +45,6 @@ Files: `clean.py` (reusable cleaner), `routing.py` (nearest store and inventory 
 - **Made:** a pre-cleaner that turns 8 Beacon files into one trustworthy table, with a plain-English health report.
 - **Learned:** _TODO_
 - **Next:** _TODO_
+
+## Evals
+See [EVALS.md](EVALS.md). Run `.venv/bin/python -m evals.run` (or `make eval`).
