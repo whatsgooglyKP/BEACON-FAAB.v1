@@ -54,3 +54,11 @@ def test_routing():
     plan, left = match_inventory(need, inv)
     assert plan.pounds.sum() == 400 and left.left.sum() == 0
     assert plan[plan.GEOID == "a"].pounds.sum() == 300
+
+def test_audit_trail():
+    t, issues, s = clean(_src(far=121.5))
+    r = t.iloc[0]
+    assert r.low_income_far_from_store_pct == 100.0 and r.low_income_far_from_store_pct_raw == 121.5
+    cap = issues[issues.what_we_did == "capped at 100"].iloc[0]
+    assert cap.value_before == "121.50" and cap.value_after == "100"
+    assert s["statewide_cdc"] == 2 and s["tract_issues"] == s["problems"] - 2

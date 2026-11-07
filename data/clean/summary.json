@@ -16,6 +16,13 @@
  "id_fixes": 1960,
  "flagged": 426,
  "left_out": 32,
+ "ranking_out": 426,
+ "out_size": 32,
+ "out_shaky": 394,
+ "corrected": 16,
+ "filled": 472,
+ "statewide_cdc": 1936,
+ "tract_issues": 1188,
  "user_match": null,
  "by_type": {
   "fixed": 16,

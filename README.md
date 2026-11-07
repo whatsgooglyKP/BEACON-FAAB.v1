@@ -12,7 +12,9 @@ The data that shows this is split across USDA, Census, CDC and SNAP-retailer fil
 3. **Results:** a plain-English Data Health Report (written by Gemini when `GEMINI_API_KEY` is set, otherwise a template), downloads (clean CSV, problem list CSV, report), and one map/list of the top 10 reliable USDA low-income & low-access tracts with the **nearest SNAP grocery stores** (straight-line miles).
    **Optional routing:** upload your food bank inventory / pantry locations (`name, lat, lon, pounds_available`) to get a greedy need-to-supply plan (pounds shared in proportion to need, taken from the nearest site with food left). `examples/EXAMPLE_food_bank_inventory.csv` is **made-up example data** for testing only.
 
-Current numbers: 8 files → 1 table of 968 tracts · 3,124 problems found · 488 fixed or filled · 426 tracts flagged for review · 32 left out of rankings.
+Current numbers: 8 files → 1 table of 968 tracts · **1,188 tract-level issues plus one statewide CDC gap** · **16 values corrected, 472 gaps filled from USDA (labeled), everything else flagged; no original value invented** · **426 left out of the ranking (32 for dorms/tiny size, 394 for shaky estimates)**.
+
+**Data integrity:** raw values are kept next to cleaned ones (e.g. `low_income_far_from_store_pct_raw`; Census columns stay blank when a value is filled into `*_best` columns with `poverty_snap_source`), every change is logged in `data/clean/issues.csv` with `value_before` / `value_after`, and filled values are labeled by source. Tract IDs are reformatted losslessly (the `1400000US` prefix is removed; digits unchanged).
 
 ## Example for the pitch: high poverty but low SNAP participation
 Current Census data only, reliable estimates, <10% group quarters: **Orange tract 177.03**, poverty 43.7% (±11.4) vs SNAP 21.5% of households (±7.5), 2% group quarters, 4,414 residents (ACS 2020–24 S1701 / S2201). This shows a *possible* enrollment gap, not eligibility. More examples are in `data/clean/snap_gap_examples.csv`. (Orange 165.1 was dropped because 47% of its residents live in group quarters.)

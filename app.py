@@ -22,7 +22,9 @@ def report_text(t, i, s):
     try:
         from google import genai
         p = ("Rewrite this data health report for a food bank coordinator in plain English, under 250 words. "
-             "Keep every number exactly as given; add no new numbers, places, or claims.\n\n" + base)
+             "Keep every number exactly as given; add no new numbers, places, or claims. Keep these framings exactly: "
+             "'N tract-level issues plus one statewide CDC gap'; 'values corrected, gaps filled from USDA (labeled), everything else flagged, no original value invented'; "
+             "'left out of the ranking (for dorms/tiny size, for shaky estimates)'; and the data-integrity sentence.\n\n" + base)
         client = genai.Client(api_key=key, http_options={"timeout": 150000})
         return client.models.generate_content(model=os.getenv("GEMINI_MODEL", "gemini-3.8-flash"), contents=p).text, "gemini"
     except Exception as e:
@@ -59,14 +61,16 @@ st.header("Step 2 · Clean and check")
 st.caption("We match every file on the same 11-digit neighborhood ID, rename columns in plain English, and flag anything that looks wrong.")
 m = st.columns(4)
 m[0].metric("Files in", s["files_in"]); m[1].metric("Neighborhoods in 1 clean table", s["tracts"])
-m[2].metric("Problems found", f"{s['problems']:,}"); m[3].metric("Flagged for a person to check", s["flagged"])
-st.markdown(f"✅ **{s['fixed']:,} fixed or filled automatically** · 🔁 {s['id_fixes']:,} neighborhood IDs reformatted · 🚫 {s['left_out']} left out of rankings")
+m[2].metric("Tract-level issues", f"{s['tract_issues']:,}", help="Plus one statewide CDC gap: no Florida food-insecurity or transportation values"); m[3].metric("Left out of the ranking", s["ranking_out"])
+st.markdown(f"✅ **{s['corrected']} values corrected, {s['filled']} gaps filled from USDA (labeled), everything else flagged. No original value invented.**  \n"
+            f"🚫 {s['ranking_out']} left out of the ranking ({s['out_size']} for dorms/tiny size, {s['out_shaky']} for shaky estimates) · 🔁 {s['id_fixes']:,} tract IDs reformatted (prefix removed, digits unchanged) · plus one statewide CDC gap")
+st.success("🔒 **Data integrity:** raw values are kept next to cleaned ones, every change is logged with before/after values in the problem list, and filled values are labeled by source.")
 if s.get("user_match"): st.info(f"Your file: {s['user_match'][0]} of {s['user_match'][1]} rows matched a Central Florida neighborhood.")
 EXPL = {"missing": "Blank in the source file", "mixed years": "Filled from an older source (years differ)", "unreliable": "Shaky estimate (big margin of error)",
         "group quarters": "Mostly dorms, prisons or care homes", "tiny population": "Very few residents", "fixed": "Impossible or coded value fixed"}
 bt = pd.DataFrame([{"Problem": EXPL.get(k, k), "Count": v} for k, v in sorted(s["by_type"].items(), key=lambda x: -x[1])])
 st.dataframe(bt, hide_index=True, use_container_width=False)
-st.caption("Most 'blank' problems are CDC food-insecurity and transportation numbers, which CDC doesn't publish for any Florida neighborhood.")
+st.caption(f"The {s['statewide_cdc']:,} 'blank' rows include CDC food-insecurity and transportation for every tract. That's one statewide gap (CDC publishes no Florida values), counted separately above.")
 
 # ---------- Step 3 ----------
 st.header("Step 3 · Results")
@@ -83,7 +87,7 @@ with b:
     st.download_button("⬇️ Health report (Markdown)", txt, "data_health_report.md", use_container_width=True)
 
 st.subheader("What the clean data shows")
-st.caption("Neighborhoods USDA lists as low income and far from groceries, ranked by how many low-income residents live far from a store. Dorm-heavy, tiny and shaky neighborhoods are left out.")
+st.caption("Neighborhoods USDA lists as low income and far from groceries, ranked by how many low-income residents live far from a store. Neighborhoods flagged for dorms, tiny size or shaky estimates are left out.")
 top = C.top_need(t, 10).merge(R.centroids()[["GEOID", "lat", "lon"]], on="GEOID")
 top["label"] = top.county + " tract " + top.tract
 stores = pd.read_csv("data/grocery_stores.csv")

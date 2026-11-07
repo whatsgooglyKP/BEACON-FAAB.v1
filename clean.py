@@ -32,7 +32,8 @@ def tract_name(g):
 
 class Log:
     def __init__(s): s.rows = []; s.fixes = {}
-    def issue(s, geoid, field, problem, action, kind): s.rows.append(dict(GEOID=geoid, field=field, problem=problem, what_we_did=action, type=kind))
+    def issue(s, geoid, field, problem, action, kind, before="", after=""):
+        s.rows.append(dict(GEOID=geoid, field=field, problem=problem, what_we_did=action, type=kind, value_before=before, value_after=after))
     def fix(s, kind, n=1): s.fixes[kind] = s.fixes.get(kind, 0) + n
 
 def _in_region(g): return bool(g) and g[:2] == "12" and g[2:5] in COUNTIES
@@ -43,9 +44,10 @@ def _acs(path, cols, log, name):
     log.fix("tract IDs reformatted to 11 digits", int(out.GEOID.map(_in_region).sum()))
     for c, label in cols.items():
         vals = raw[c].map(to_number); out[label] = [v for v, _ in vals]
-        for gid, (_, note) in zip(out.GEOID, vals):
+        for gid, rawv, (v, note) in zip(out.GEOID, raw[c], vals):
             if note and _in_region(gid):
-                log.issue(gid, label, f"value was {note} in the Census file", "set blank" if note != "top/bottom-coded" else "kept the cap value", "fixed")
+                log.issue(gid, label, f"value was {note} in the Census file", "set blank" if note != "top/bottom-coded" else "kept the cap value", "fixed",
+                          before=rawv, after="(blank)" if pd.isna(v) else f"{v:g}")
     return out
 
 def load_sources(base=B):
@@ -87,6 +89,7 @@ def clean(src, user_df=None, user_id_col=None):
     t.insert(1, "county", t.GEOID.str[2:5].map(COUNTIES)); t.insert(2, "tract", t.GEOID.map(tract_name))
     t = t.merge(src["acs"], on="GEOID", how="left").merge(src["places"], on="GEOID", how="left").merge(src["stores"], on="county", how="left")
     t["poverty_pct_best"] = t.poverty_pct; t["snap_pct_best"] = t.snap_households_pct; t["poverty_snap_source"] = "Census 2020–24"
+    t.insert(t.columns.get_loc("low_income_far_from_store_pct") + 1, "low_income_far_from_store_pct_raw", t.low_income_far_from_store_pct)
     t["needs_review"] = False; t["left_out_of_ranking"] = False; t["review_reasons"] = ""
     def flag(i, txt, out=False):
         t.at[i, "review_reasons"] = (t.at[i, "review_reasons"] + "; " if t.at[i, "review_reasons"] else "") + txt
@@ -95,28 +98,30 @@ def clean(src, user_df=None, user_id_col=None):
     for i, r in t.iterrows():
         g = r.GEOID
         for f, lab in [("food_insecurity_pct", "food insecurity"), ("lack_transportation_pct", "lack of transportation")]:
-            if pd.isna(r[f]): log.issue(g, lab, "blank at the source (CDC has no Florida values)", "left blank", "missing")
+            if pd.isna(r[f]): log.issue(g, lab, "blank at the source (CDC has no Florida values)", "left blank", "missing", "(blank)", "(blank)")
         if pd.isna(r.poverty_pct):
             if pd.notna(r.usda_poverty_pct):
                 t.at[i, "poverty_pct_best"] = r.usda_poverty_pct
                 t.at[i, "snap_pct_best"] = r.usda_snap_homes / r.homes_2020 * 100 if r.homes_2020 else np.nan
                 t.at[i, "poverty_snap_source"] = "USDA Atlas (older years)"
-                log.issue(g, "poverty / SNAP", "no current Census numbers in the Beacon sample", "filled from USDA Atlas and labeled", "mixed years")
+                sn = t.at[i, "snap_pct_best"]
+                log.issue(g, "poverty / SNAP", "no current Census numbers in the Beacon sample", "filled from USDA Atlas and labeled", "mixed years",
+                          before="(blank)", after=f"poverty {r.usda_poverty_pct:.1f}%; SNAP {sn:.1f}% (USDA TractSNAP/OHU2020)" if pd.notna(sn) else f"poverty {r.usda_poverty_pct:.1f}%; SNAP blank")
             else:
-                log.issue(g, "poverty / SNAP", "blank in every source", "left blank", "missing"); flag(i, "poverty blank everywhere")
+                log.issue(g, "poverty / SNAP", "blank in every source", "left blank", "missing", "(blank)", "(blank)"); flag(i, "poverty blank everywhere")
         for est, moe, lab in [("snap_households_pct", "snap_households_pct_moe", "SNAP %"), ("poverty_pct", "poverty_pct_moe", "poverty %")]:
             if pd.notna(r[est]) and pd.notna(r[moe]) and r[est] > 0 and (r[moe] / 1.645) / r[est] > CV_LIMIT:
-                log.issue(g, lab, f"shaky estimate: {r[est]:.1f}% ± {r[moe]:.1f}", "flagged for review", "unreliable"); flag(i, f"shaky {lab} ({r[est]:.1f}% ± {r[moe]:.1f})")
+                log.issue(g, lab, f"shaky estimate: {r[est]:.1f}% ± {r[moe]:.1f}", "flagged for review", "unreliable", f"{r[est]:.1f}", f"{r[est]:.1f} (unchanged)"); flag(i, f"shaky {lab} ({r[est]:.1f}% ± {r[moe]:.1f})")
         if pd.notna(r.group_quarters_pct) and r.group_quarters_pct >= GQ_LIMIT:
-            log.issue(g, "group quarters", f"{r.group_quarters_pct:.0f}% live in dorms, prisons or care homes", "left out of ranking", "group quarters"); flag(i, f"{r.group_quarters_pct:.0f}% in dorms/prisons/care homes", True)
+            log.issue(g, "group quarters", f"{r.group_quarters_pct:.0f}% live in dorms, prisons or care homes", "left out of ranking", "group quarters", f"{r.group_quarters_pct:.2f}", "(unchanged)"); flag(i, f"{r.group_quarters_pct:.0f}% in dorms/prisons/care homes", True)
         pop = r.population_2024 if pd.notna(r.population_2024) else r.population_2020
         if pd.notna(pop) and pop < TINY_POP:
-            log.issue(g, "population", f"only {int(pop)} residents", "left out of ranking", "tiny population"); flag(i, f"only {int(pop)} residents", True)
+            log.issue(g, "population", f"only {int(pop)} residents", "left out of ranking", "tiny population", f"{int(pop)}", "(unchanged)"); flag(i, f"only {int(pop)} residents", True)
         if pd.notna(r.low_income_far_from_store_pct) and r.low_income_far_from_store_pct > 100:
             t.at[i, "low_income_far_from_store_pct"] = 100.0
-            log.issue(g, "low income & far %", f"was {r.low_income_far_from_store_pct:.1f}% (impossible)", "capped at 100", "fixed")
+            log.issue(g, "low income & far %", f"was {r.low_income_far_from_store_pct:.1f}% (impossible)", "capped at 100", "fixed", f"{r.low_income_far_from_store_pct:.2f}", "100")
         if pd.isna(r.low_income_people_far_from_store):
-            log.issue(g, "low income & far", "blank in USDA file", "left blank", "missing"); flag(i, "USDA distance blank", True)
+            log.issue(g, "low income & far", "blank in USDA file", "left blank", "missing", "(blank)", "(blank)"); flag(i, "USDA distance blank", True)
     t["poverty_minus_snap_points"] = t.poverty_pct_best - t.snap_pct_best
     user_match = None
     if user_df is not None and user_id_col:
@@ -125,11 +130,15 @@ def clean(src, user_df=None, user_id_col=None):
         u.columns = ["GEOID" if c == "GEOID" else "your_" + re.sub(r"\W+", "_", str(c)).strip("_").lower() for c in u.columns]
         user_match = (int(u.GEOID.isin(t.GEOID).sum()), len(user_df))
         t = t.merge(u, on="GEOID", how="left")
-    issues = pd.DataFrame(log.rows, columns=["GEOID", "field", "problem", "what_we_did", "type"])
+    issues = pd.DataFrame(log.rows, columns=["GEOID", "field", "problem", "what_we_did", "type", "value_before", "value_after"])
     issues = issues[issues.GEOID.isin(t.GEOID)].merge(t[["GEOID", "county", "tract"]], on="GEOID", how="left")
     summary = dict(files_in=len(src["files"]) + (user_df is not None), file_names=src["files"], tracts=len(t), problems=len(issues),
         fixed=int(issues.type.isin(["fixed", "mixed years"]).sum()), id_fixes=src["log"].fixes.get("tract IDs reformatted to 11 digits", 0),
-        flagged=int(t.needs_review.sum()), left_out=int(t.left_out_of_ranking.sum()), user_match=user_match,
+        flagged=int(t.needs_review.sum()), left_out=int(t.left_out_of_ranking.sum()),
+        ranking_out=int(t.needs_review.sum()), out_size=int(t.left_out_of_ranking.sum()), out_shaky=int((t.needs_review & ~t.left_out_of_ranking).sum()),
+        corrected=int(issues.type.eq("fixed").sum()), filled=int(issues.type.eq("mixed years").sum()),
+        statewide_cdc=int(issues.field.isin(["food insecurity", "lack of transportation"]).sum()),
+        tract_issues=int((~issues.field.isin(["food insecurity", "lack of transportation"])).sum()), user_match=user_match,
         by_type=issues.groupby("type").size().to_dict())
     return t, issues, summary
 
@@ -150,9 +159,11 @@ def health_report(t, issues, s):
     bt = s["by_type"]; top = top_need(t, 3)
     L = ["# Data Health Report: Central Florida food access", "",
       f"We combined **{s['files_in']} public files** into **one clean table of {s['tracts']} neighborhoods** (census tracts) in Orange, Seminole, Osceola, Lake, Volusia, Brevard, Polk and Sumter counties.",
-      f"We found **{s['problems']:,} problems**. {s['fixed']:,} were fixed or filled automatically; **{s['flagged']} neighborhoods** are flagged for a person to check, and {s['left_out']} are left out of rankings.", "",
+      f"We found **{s['tract_issues']:,} tract-level issues plus one statewide CDC gap**. {s['corrected']} values were corrected, {s['filled']} gaps were filled from USDA (labeled), and everything else was flagged; no original value was invented.",
+      f"**{s['ranking_out']} neighborhoods are left out of the ranking** ({s['out_size']} for dorms or tiny size, {s['out_shaky']} for shaky estimates).",
+      "Data integrity: raw values are kept next to cleaned ones, every change is logged with before/after values, and filled values are labeled by source.", "",
       "## The biggest problems",
-      f"- **Missing at the source:** CDC food-insecurity and transportation numbers are blank for all {s['tracts']} tracts. CDC's 2025 release has no Florida values for them.",
+      f"- **Statewide CDC gap:** CDC food-insecurity and transportation numbers are blank for all {s['tracts']} Florida tracts in the 2025 release (counted once, not as {s['statewide_cdc']:,} problems).",
       f"- **Mixed years:** {int((t.poverty_snap_source != 'Census 2020–24').sum())} tracts (Volusia, Brevard, Polk, Sumter) have no current Census numbers in the Beacon sample, so we filled them from older USDA figures and labeled them.",
       f"- **Shaky estimates:** {bt.get('unreliable', 0)} Census numbers have a margin of error too large to trust alone.",
       f"- **Dorms, prisons, care homes:** {int((t.group_quarters_pct >= GQ_LIMIT).sum())} tracts where {GQ_LIMIT:.0f}%+ of people live in group quarters, which can make poverty look higher than it is for families.",
