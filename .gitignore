@@ -1,0 +1,8 @@
+.venv/
+data/beacon/
+data/*.zip
+data/Food Access Research Atlas.csv
+data/ReadMe.csv
+data/VariableLookup.csv
+data/decisions.csv
+__pycache__/

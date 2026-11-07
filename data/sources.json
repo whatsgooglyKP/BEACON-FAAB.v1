@@ -1,0 +1,32 @@
+[
+ {
+  "name": "USDA ERS Food Access Research Atlas \u2013 SNAP-authorized Retailer Access Map (driving distance)",
+  "vintage": "Initial release July 2026; 2020 census tracts/pop",
+  "via": "Beacon example data folder",
+  "downloaded": "2026-11-07"
+ },
+ {
+  "name": "ACS 5-year 2020\u20132024 Subject Tables S2201 (SNAP), S1701 (poverty), S1901 (income), S0101 (population)",
+  "vintage": "2024 5-year",
+  "via": "Beacon example data folder (Orange, Seminole, Osceola, Lake only)",
+  "downloaded": "2026-11-07"
+ },
+ {
+  "name": "CDC PLACES census tract data (GIS friendly), 2025 release \u2013 food insecurity, SNAP, lack of transportation",
+  "vintage": "2025 release (model-based estimates from BRFSS ~2022-2023)",
+  "via": "Beacon example data folder",
+  "downloaded": "2026-11-07"
+ },
+ {
+  "name": "USDA SNAP Retailer Location data",
+  "vintage": "as provided in Beacon folder",
+  "via": "Beacon example data folder",
+  "downloaded": "2026-11-07"
+ },
+ {
+  "name": "Census cartographic boundary tracts cb_2023_12_tract_500k",
+  "vintage": "2023 (2020 tract definitions)",
+  "via": "www2.census.gov",
+  "downloaded": "2026-11-07"
+ }
+]
