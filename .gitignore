@@ -6,3 +6,8 @@ data/ReadMe.csv
 data/VariableLookup.csv
 data/decisions.csv
 __pycache__/
+.env
+.env.*
+*.pyc
+data/svi.csv
+.streamlit/secrets.toml
