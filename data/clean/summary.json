@@ -1,0 +1,28 @@
+{
+ "files_in": 8,
+ "file_names": [
+  "Census ACS S2201 (2020\u201324)",
+  "Census ACS S1701 (2020\u201324)",
+  "Census ACS S1901 (2020\u201324)",
+  "Census ACS S0101 (2020\u201324)",
+  "USDA Food Access Atlas: tract facts",
+  "USDA Food Access Atlas: driving distance",
+  "CDC PLACES health estimates (2025)",
+  "USDA SNAP retailer list"
+ ],
+ "tracts": 968,
+ "problems": 3124,
+ "fixed": 488,
+ "id_fixes": 1960,
+ "flagged": 426,
+ "left_out": 32,
+ "user_match": null,
+ "by_type": {
+  "fixed": 16,
+  "group quarters": 25,
+  "missing": 1944,
+  "mixed years": 472,
+  "tiny population": 8,
+  "unreliable": 659
+ }
+}

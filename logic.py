@@ -100,7 +100,7 @@ def gemini_brief(r, cavg, ravg):
                   "pantry, partner or program. Do not claim causation or that an area lacks pantry coverage. Plain English, under 180 words, "
                   "sections: What the data shows, Suggested next steps (2-3 bullets), Data cautions.\n" + json.dumps(facts, default=str))
         c = genai.Client(api_key=key)
-        out = c.models.generate_content(model=os.getenv("GEMINI_MODEL", "gemini-2.5-flash"), contents=prompt)
+        out = c.models.generate_content(model=os.getenv("GEMINI_MODEL", "gemini-3.8-flash"), contents=prompt)
         return out.text, "gemini"
     except Exception as e:
         return template_brief(r, cavg, ravg) + f"\n\n_(Gemini unavailable: {type(e).__name__}; showing template.)_", "template"
