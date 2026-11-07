@@ -5,7 +5,7 @@ from clean import health_report
 PROMPT = ("Rewrite this data health report for a food bank coordinator in plain English, under 250 words. "
           "Keep every number exactly as given; add no new numbers, places, or claims. Keep these framings exactly: "
           "'N tract-level issues plus one statewide CDC gap'; 'values corrected, gaps filled from USDA (labeled), everything else flagged, no original value invented'; "
-          "'left out of the ranking (for dorms/tiny size, for shaky estimates)'; and the data-integrity sentence.\n\n")
+          "'left out of the ranking (for dorms/tiny size, for shaky estimates)'; and the data-integrity sentence. The car-free figure counts HOMES (housing units) with no car: always say 'homes' or 'housing units', never 'households'.\n\n")
 
 def make_report(t, issues, s, client_factory=None):
     """Returns (text, mode). mode = 'gemini' or 'template...'. client_factory lets tests inject a failing client."""

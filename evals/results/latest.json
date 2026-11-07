@@ -1,53 +1,23 @@
 {
- "timestamp": "2026-11-07T18:42:56-05:00",
- "seconds": 163.6,
+ "timestamp": "2026-11-07T18:44:00-05:00",
+ "seconds": 9.5,
  "summary": {
-  "PASS": 7,
+  "PASS": 1,
   "FAIL": 0,
-  "SKIP": 0
+  "SKIP": 1
  },
  "results": [
   {
    "id": 1,
    "name": "Cleaning correctness (unit tests)",
    "status": "PASS",
-   "detail": "9 passed in 0.31s"
-  },
-  {
-   "id": 2,
-   "name": "Real-data integrity",
-   "status": "PASS",
-   "detail": "968 in/968 out, 0 dupes, pop 4,688,329, 4 caps + 472 fills + 16 recodes all logged with before/after"
-  },
-  {
-   "id": 3,
-   "name": "Source spot-check",
-   "status": "PASS",
-   "detail": "10 tracts \u00d7 up to 6 fields match source cells exactly"
-  },
-  {
-   "id": 4,
-   "name": "Ranking sanity",
-   "status": "PASS",
-   "detail": "0 flagged in top 10, deterministic, 1% noise overlap min 10/10 (20 trials)"
+   "detail": "9 passed in 0.28s"
   },
   {
    "id": 5,
    "name": "Gemini report faithfulness",
-   "status": "PASS",
-   "detail": "1/3 Gemini runs returned; 1 fully faithful; fallback ok"
-  },
-  {
-   "id": 6,
-   "name": "Routing",
-   "status": "PASS",
-   "detail": "13 legs, 9,499/9,500 lb used, all 10 tracts matched, 7.9\u201356.6 mi"
-  },
-  {
-   "id": 7,
-   "name": "End-to-end smoke",
-   "status": "PASS",
-   "detail": "3 steps rendered, routing example ran, 0 exceptions; downloads: clean CSV 968 rows, issues CSV 3,124 rows, report 1,907 chars"
+   "status": "SKIP",
+   "detail": "0/3 Gemini runs returned; 0 fully faithful; fallback ok (Gemini unavailable: template (Gemini error: ServerError))"
   }
  ]
 }

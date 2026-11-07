@@ -89,6 +89,15 @@ def e4():
 
 NUM = re.compile(r"(?<![\w.])\d[\d,]*(?:\.\d+)?")
 def numbers(txt): return [float(x.replace(",", "")) for x in NUM.findall(txt)]
+REQUIRED = ["tract-level issues plus one statewide CDC gap", "no original value", "left out of the ranking"]
+def term_problems(txt, car):
+    low = txt.lower(); out = []
+    for m in re.finditer(re.escape(car), txt):
+        if "household" in low[m.start():m.end() + 60]: out.append(f"'{car}' called households")
+    if re.search(r"(car-free|no car|without a car|no vehicle)[^.]{0,20}household", low): out.append("car-free figure called households")
+    out += [f"missing framing: {r}" for r in REQUIRED if r.lower() not in low]
+    return out
+
 def e5(skip, n):
     t, i, s = data(); base = C.health_report(t, i, s); allowed = set(numbers(base))
     # stats-backed check: headline numbers in the template equal the summary
@@ -103,10 +112,14 @@ def e5(skip, n):
     key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
     if miss or not fb_ok: return "FAIL", f"template missing {miss}; fallback ok={fb_ok}"
     if skip or not key: return "SKIP", "Gemini runs skipped (no key or --skip-gemini); template numbers match stats and fallback triggers on failure"
+    s_car = f"{t.car_free_homes_far_from_store.sum():,.0f}"
+    tp = term_problems(base, s_car)
+    if tp: return "FAIL", f"template wording: {tp}"
     def one(_):
         txt, mode = RP.make_report(t, i, s)
         if mode != "gemini": return mode, []
-        bad = [x for x in numbers(txt) if not any(abs(x - a) <= max(0.051, a * 0.005) for a in allowed) and x not in (1, 2, 3, 10, 2020, 2024, 2025)]
+        terms = term_problems(txt, s_car)
+        bad = terms + [x for x in numbers(txt) if not any(abs(x - a) <= max(0.051, a * 0.005) for a in allowed) and x not in (1, 2, 3, 10, 2020, 2024, 2025)]
         return mode, bad
     with cf.ThreadPoolExecutor(n) as ex: outs = list(ex.map(one, range(n)))
     ok = [o for o in outs if o[0] == "gemini"]; unfaithful = [o for o in ok if o[1]]
