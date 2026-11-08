@@ -58,6 +58,8 @@ def test_all_eighteen_rules_have_explicit_detectors():
     t.loc[7, 'transport_ci_low'] = 1; t.loc[7, 'transport_ci_high'] = 50
     t.loc[8, 'income_bound'] = 'at_least'
     t.loc[9, 'low_access_population_pct_half10'] = 120
+    # R16 requires a nonzero IQR; an otherwise constant field cannot support it.
+    t['median_household_income'] = 40000. + np.arange(len(t))*100
     t.loc[10, 'median_household_income'] = 1e9
     meta = {'import_events': [{'rule_id': 'R01', 'field': 'headers', 'tract_id': '', 'before': 'BOM', 'after': 'UTF-8'},
                               {'rule_id': 'R02', 'field': 'tract_id', 'tract_id': t.loc[0,'tract_id'], 'before':'1400000US'+t.loc[0,'tract_id'], 'after':t.loc[0,'tract_id']},
@@ -157,3 +159,45 @@ def test_real_regions_and_counts():
             assert cv==129
         if region=='nyc':
             assert set(['36047990100','36081990100','36085990100']).issubset(set(b.table.tract_id))
+
+
+def test_known_coverage_reasons_live_in_observations_not_only_ui():
+    from indicators import load_community
+    b=load_community('fl')
+    obs=b.observations[b.observations.indicator_id.eq('transport_lack_pct')]
+    assert obs.missing_reason.eq('not_available_for_region').all()
+    ny=load_community('nyc').table
+    r=ny[ny.tract_id.eq('36047990100')].iloc[0]
+    assert r.lila_half10_driving_missing_reason=='source_row_absent'
+    assert r.low_access_population_pct_half10_missing_reason=='source_row_absent'
+
+
+def test_zero_base_ratio_is_blocked_and_invalid_domain_is_not_a_distribution_outlier():
+    from quality_rules import detect
+    t=fixture();t.loc[0,'population_2020']=0
+    t.loc[1,'poverty_pct']=999
+    q=detect(t)
+    assert ((q.rule_id=='R07')&(q.tract_id==t.loc[0,'tract_id'])).any()
+    assert not ((q.rule_id=='R16')&(q.tract_id==t.loc[1,'tract_id'])&(q.field=='poverty_pct')).any()
+
+
+def test_resolution_only_reopens_for_a_new_conflicting_vote(tmp_path):
+    from review_store import ReviewStore
+    s=ReviewStore(tmp_path/'r.db')
+    p=dict(proposal_id='p',tract_id='x',field='poverty_pct',before=1.,after=2.,kind='value_change')
+    s.register('r',pd.DataFrame([p]),{})
+    s.decide('r','p','Accept','A','source checked')
+    s.decide('r','p','Reject','B','mapping concern')
+    s.resolve('r','p','Accept','Resolver','selected existing source')
+    s.decide('r','p','Accept','A','affirm the resolution')
+    assert s.state('r','p')['status']=='resolved'
+    s.decide('r','p','Reject','B','new conflicting information')
+    assert s.state('r','p')['status']=='disputed'
+
+
+def test_unrelated_national_source_ids_do_not_block_selected_community():
+    from clean import run
+    for region in ('fl','nyc','slc'):
+        b,q=run(region)
+        assert not b.manifest['quarantined'], 'Out-of-region national IDs must be scoped before quarantine'
+        assert q[(q.rule_id=='R02')&(~q.auto_applied)].empty

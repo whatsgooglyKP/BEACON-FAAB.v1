@@ -97,7 +97,9 @@ class ReviewStore:
         for e in events:
             if e.get('event_kind')=='resolution': resolution=e
             else:
-                resolution=None
+                if resolution and e['action']!='Undo':
+                    agrees=(e['action']==resolution['action'] and (e['action']!='Edit' or e.get('value')==resolution.get('value')))
+                    if not agrees: resolution=None
                 if e['action']=='Undo': votes.pop(e['reviewer'],None)
                 else: votes[e['reviewer']]=e
         version=events[-1]['version'] if events else 0
@@ -159,7 +161,7 @@ class ReviewStore:
     def _apply(baseline,proposals,states):
         """Build a validated view. Pending or disputed patches never touch source values."""
         out=baseline.copy(); out['review_complete']=True; out['review_status']='reviewed baseline'
-        out['has_dispute']=False; out['evidence_cautions']=''
+        out['has_dispute']=False; out['has_source_conflict']=False; out['evidence_cautions']=''
         # Baseline safety gates operate even if a person rejects the exclusion proposal.
         for f in out.columns:
             if f.endswith('_pct') or f=='low_access_population_pct_half10':
@@ -174,6 +176,7 @@ class ReviewStore:
                 out.loc[mask,'evidence_cautions']+=p.get('reason','')+' '
                 if status in ('pending','disputed'): out.loc[mask,'review_complete']=False
                 if status=='disputed': out.loc[mask,'has_dispute']=True
+                if p.get('rule_id')=='R15' and status in ('pending','disputed'): out.loc[mask,'has_source_conflict']=True
                 priority={'reviewed baseline':0,'accepted_agreed':1,'rejected_agreed':1,'resolved':1,'accepted_provisional':2,'rejected_provisional':2,'pending':3,'disputed':4}
                 stronger=mask & out.review_status.map(priority).fillna(0).le(priority.get(status,0))
                 out.loc[stronger,'review_status']=status
@@ -212,6 +215,10 @@ class ReviewStore:
         if not reviewer.strip() or not note.strip(): raise ValueError('Reviewer and reason are required.')
         if action=='Replace action' and not replacement.strip(): raise ValueError('A replacement category is required.')
         if action=='Reorder' and (position is None or int(position)<1): raise ValueError('Operational position must be positive.')
+        # Ignore unused form controls: agreeing approvals must not be disputed
+        # merely because two people left different numbers in the reorder box.
+        replacement=replacement.strip() if action=='Replace action' else ''
+        position=int(position) if action=='Reorder' else None
         payload=dict(action=action,reviewer=reviewer.strip(),note=note.strip(),replacement=replacement,position=position,created_at=datetime.now(ZoneInfo('America/New_York')).isoformat())
         with self._db() as db: db.execute('INSERT INTO recommendation_events(run_id,tract_id,payload) VALUES (?,?,?)',(run_id,tract_id,_json(payload)))
 

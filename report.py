@@ -18,7 +18,7 @@ def evidence_report(bundle, proposals, reviewed=None):
     ready=int(reviewed.review_complete.sum()) if reviewed is not None else 0
     lines=[f'# Evidence report · {name}',
         f'{len(t)} neighborhoods (2020 census tracts) were retained; {flagged} neighborhoods are flagged low income AND low access under driving LILA, ½ mile urban / 10 miles rural. These are source flags, not confirmed hunger or predicted shortages.',
-        f'{safe} format/code standardizations were safely recorded, with originals preserved. {cautions} review cautions and limitations remain visible. {ready} neighborhoods have completed the relevant review; single-reviewer decisions are provisional.',
+        f'{safe} format/code audit events were safely recorded, including grouped import recipes, with originals preserved. {cautions} review cautions and limitations remain visible. {ready} neighborhoods have completed the relevant review; single-reviewer decisions are provisional.',
         'Sources: ACS 2020–24 poverty and SNAP ready-made percentages. Poverty describes persons with poverty status determined; SNAP participation describes households. Occupied housing units are called homes, not households.',
         'Access uses the 2020 population base and a June 2025 retailer snapshot. Conditions may have changed. USDA initial release was July 2026; its poverty figures share the upstream ACS source, so agreement is not independent corroboration.',
         'The common priority score uses equal-weight within-community midrank percentiles of poverty and continuous low-access population share. Missing either measure means unscored, never zero. Confidence is an evidence-quality label, not a prediction probability.',

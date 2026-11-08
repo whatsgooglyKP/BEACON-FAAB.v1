@@ -35,6 +35,8 @@ def go(step):
 st.title('Beacon · Evidence Review')
 st.caption('A public-data prototype built for Beacon · DevFest Florida 2026 · Not an official DataKind product')
 st.write('Clean the format. Understand the evidence. Decide together where to look next.')
+if os.getenv('BEACON_DEMO_MODE')=='1':
+    st.info('Demonstration workspace: real public source data with explicitly simulated reviewer decisions. This is not practitioner validation.')
 with st.sidebar:
     st.subheader('Your workspace')
     region=st.selectbox('Community',list(REGIONS),format_func=lambda r:REGIONS[r]['name'],key='region')
@@ -90,7 +92,10 @@ elif st.session_state.step==steps[1]:
     c1.metric('Needs a decision',int(pending.sum()))
     c2.metric('Cautions to understand',len(nonauto))
     c3.metric('Ready to use',int(ranked.ready_to_use.sum()))
-    st.caption(f'{int(queue.auto_applied.sum())} format/code standardizations recorded separately · {nonauto.tract_id[nonauto.tract_id.ne("")].nunique()} unique tracts with cautions · accepting a limitation does not resolve missing data.')
+    st.caption(f'{int(queue.auto_applied.sum())} format/code audit events recorded separately · {nonauto.tract_id[nonauto.tract_id.ne("")].nunique()} unique tracts with cautions · accepting a limitation does not resolve missing data.')
+    analytical=queue.kind.isin(['value_change','exclude'])
+    accepted=queue.review_status.isin(['accepted_provisional','accepted_agreed','resolved'])
+    st.caption(f'{int(analytical.sum())} proposed analytical changes · {int((analytical & accepted).sum())} accepted analytical proposals · {int(queue.rule_id.eq("R12").sum())} regional coverage cards. Format events can describe grouped import recipes; none of these counters means every caution was an error or was fixed.')
     filters=st.columns([1,2])
     scope=filters[0].selectbox('Queue view',['Needs a decision','Disagreements','All review records'])
     tract_filter=filters[1].selectbox('Filter neighborhood',['All neighborhoods','Regional notices']+bundle.table.tract_id.tolist(),key=f'filter-{region}')
@@ -133,12 +138,18 @@ elif st.session_state.step==steps[1]:
                 value=st.number_input('Edited numeric value (used only for Edit)',value=float(p.after) if isinstance(p.after,(int,float)) and pd.notna(p.after) else 0.,disabled=p.kind not in ('value_change','exclude'))
                 resolve=st.checkbox('Save as an explicit resolution',disabled=state['status']!='disputed')
                 submitted=st.form_submit_button('Save decision',type='primary')
+            # Remember the version the person actually saw. A form submission
+            # reruns this script, so using freshly read state here would silently
+            # bypass the stale-save guard. Only a non-submission render refreshes it.
+            seen_key=f'rendered-version-{rid}-{selected}'
+            if not submitted: st.session_state[seen_key]=state['version']
             if submitted:
                 try:
                     fn=store.resolve if resolve else store.decide
-                    fn(rid,selected,action,reviewer,note,value=value if action=='Edit' else None,evidence=evidence,expected_version=state['version'])
+                    fn(rid,selected,action,reviewer,note,value=value if action=='Edit' else None,evidence=evidence,expected_version=st.session_state.get(seen_key,state['version']))
                     st.rerun()
                 except (ValueError,StaleVersion) as exc: st.error(str(exc))
+            if st.button('Reload this review card'): st.rerun()
             if p.kind not in ('value_change','exclude'): st.caption('Edit the interpretation with a tract note below; contextual knowledge must not rewrite official statistics.')
     with st.expander('Add a neighborhood note or flag'):
         with st.form('tract-note'):
@@ -175,10 +186,14 @@ else:
         mapped=visible.dropna(subset=['lat','lon','score'])
         st.caption(f'{len(mapped)} of {len(visible)} displayed tracts have supplied PLACES point coordinates. These points are neighborhood references, not facilities or precise service areas. Unmapped tracts remain in the list.')
         if not mapped.empty:
-            fig=px.scatter_map(mapped,lat='lat',lon='lon',color='score',hover_name='tract_id',hover_data=['county','confidence','gap_type'],color_continuous_scale=['#6B8FA8','#F79122'],zoom=8 if region!='nyc' else 9,height=400,map_style='open-street-map')
+            # Plotly's map center defaults to (0,0); center on supplied points
+            # so the selected community, not an empty ocean, is in view.
+            fig=px.scatter_map(mapped,lat='lat',lon='lon',color='score',hover_name='tract_id',hover_data=['county','confidence','gap_type'],color_continuous_scale=['#6B8FA8','#F79122'],center={'lat':float(mapped.lat.mean()),'lon':float(mapped.lon.mean())},zoom=8 if region!='nyc' else 9,height=400,map_style='open-street-map')
             fig.update_layout(margin=dict(l=0,r=0,t=0,b=0));st.plotly_chart(fig,width='stretch')
     st.subheader('Why this neighborhood?')
-    picks=ranked.sort_values(['model_rank','tract_id'],na_position='last').tract_id.tolist()
+    inspector=visible if not visible.empty else ranked
+    if visible.empty: st.caption('Unreviewed evidence inspector only: these records are not in the usable shortlist.')
+    picks=inspector.sort_values(['model_rank','tract_id'],na_position='last').tract_id.tolist()
     gid=st.selectbox('Inspect a neighborhood',picks,key=f'inspect-{region}')
     r=ranked[ranked.tract_id.eq(gid)].iloc[0]
     with st.container(border=True):

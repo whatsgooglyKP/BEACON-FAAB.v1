@@ -1,183 +1,258 @@
-"""Eval suite. Run all:  python -m evals.run
-Options: --only 1,3   --skip-gemini   --gemini-n 3   --random (adds 10 unseeded tracts to the spot check)"""
-import argparse, datetime, json, os, re, subprocess, sys, time, traceback, concurrent.futures as cf
-import numpy as np, pandas as pd
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-import clean as C, routing as R, report as RP
+"""One-command redesign scorecard; optional live Gemini is reported separately.
 
-RES = []
-def record(n, name, status, detail):
-    RES.append(dict(id=n, name=name, status=status, detail=detail)); print(f"[{status:4}] {n}. {name}: {detail}", flush=True)
+Run python -m evals.run [--only 1,3] [--skip-gemini] [--gemini-n 1].
+Independent source-cell and midrank reference checks complement acceptance tests.
+"""
+from pathlib import Path
+from datetime import datetime
+from zoneinfo import ZoneInfo
+from functools import lru_cache
+import argparse
+import hashlib
+import io
+import json
+import os
+import subprocess
+import sys
+import tempfile
+import time
+import traceback
+import numpy as np
+import pandas as pd
 
-_cache = {}
-def data():
-    if "d" not in _cache: _cache["d"] = C.run()
-    return _cache["d"]
+ROOT=Path(__file__).resolve().parents[1]
+sys.path.insert(0,str(ROOT));os.chdir(ROOT)
+from clean import run
+from indicators import REGIONS
+from need import rank,operational_view
+from quality_rules import detect
+from review_store import ReviewStore
+from exports import export_bundle,replay_export
+from report import evidence_report,make_report,validate_generated
+RESULTS=[]
 
-def usda_raw():
-    g = pd.read_csv(f"{C.B}/fara2025/SRAM General Tract Characteristics Data.csv", dtype=str, encoding="latin-1")
-    d = pd.read_csv(f"{C.B}/fara2025/SRAM Driving Distance Data.csv", dtype=str, encoding="latin-1")
-    u = g.merge(d.drop(columns=["State", "County20", "County24"]), on="CensusTract20"); u["GEOID"] = u.CensusTract20.map(C.fix_geoid)
-    return u.set_index("GEOID")
 
-def acs_raw(folder, table):
-    a = pd.read_csv(f"{C.B}/{folder}/ACSST5Y2024.{table}-Data.csv", dtype=str, skiprows=[1]); a["GEOID"] = a.GEO_ID.map(C.fix_geoid)
-    return a.set_index("GEOID")
+def record(id,name,status,detail):
+    """Print a non-secret result and retain exactly the same record for Markdown/JSON."""
+    RESULTS.append(dict(id=id,name=name,status=status,detail=detail))
+    print(f'[{status}] {id}. {name}: {detail}',flush=True)
 
-def e1():
-    r = subprocess.run([sys.executable, "-m", "pytest", "-q", "tests"], capture_output=True, text=True)
-    last = (r.stdout.strip().splitlines() or ["no output"])[-1]
-    return ("PASS" if r.returncode == 0 else "FAIL"), last
+
+def pytest(*paths):
+    """Keep failing-test output actionable; do not bury a failure behind a summary."""
+    out=subprocess.run([sys.executable,'-m','pytest','-q','--basetemp=data/review/eval-pytest',*paths],capture_output=True,text=True)
+    if out.returncode: print(out.stdout,flush=True);print(out.stderr,flush=True)
+    assert out.returncode==0,'Acceptance test failure (see output)'
+    return out.stdout.strip().splitlines()[-1]
+
+
+@lru_cache(maxsize=16)
+def source(name):
+    """Independent raw CSV reader, with source IDs parsed literally, not via adapters."""
+    if name in ('poverty','snap'):
+        code='S1701' if name=='poverty' else 'S2201'
+        d=pd.read_csv(f'data/beacon/{name}/ACSST5Y2024.{code}-Data.csv',dtype=str,keep_default_na=False)
+        d['tract_id']=d.GEO_ID.str.replace('1400000US','',regex=False)
+        return d[d.tract_id.str.fullmatch(r'\d{11}')].set_index('tract_id')
+    fn={'general':'SRAM General Tract Characteristics Data.csv','driving':'SRAM Driving Distance Data.csv','straight':'SRAM Straight Line Distance Data.csv'}[name]
+    d=pd.read_csv('data/beacon/fara2025/'+fn,dtype=str,encoding='cp1252',keep_default_na=False)
+    return d.set_index('CensusTract20')
+
+
+def e1(): return pytest('tests')
+
 
 def e2():
-    t, i, s = data(); probs = []
-    u = usda_raw(); n_src = int(pd.Series(u.index).map(C._in_region).sum())
-    if not (n_src == len(t) == 968): probs.append(f"rows src={n_src} out={len(t)}")
-    if t.GEOID.duplicated().any(): probs.append("duplicate GEOIDs")
-    pop = int(t.population_2020.sum())
-    if pop != 4688329: probs.append(f"population {pop}")
-    # raw columns identical to source
-    ur = u.loc[t.GEOID]; urban = pd.to_numeric(ur.Urban).eq(1).values
-    src_share = np.where(urban, pd.to_numeric(ur.DD_SRAM_lalowi1share), pd.to_numeric(ur.DD_SRAM_lalowi10share))
-    if not np.allclose(t.low_income_far_from_store_pct_raw.values, src_share, equal_nan=True): probs.append("raw share column differs from USDA")
-    if not np.allclose(t.usda_poverty_pct.values, pd.to_numeric(ur.PovertyRate).values, equal_nan=True): probs.append("usda_poverty_pct differs")
-    # every changed value logged
-    capped = t[t.low_income_far_from_store_pct != t.low_income_far_from_store_pct_raw].dropna(subset=["low_income_far_from_store_pct_raw"])
-    capl = i[i.what_we_did == "capped at 100"]
-    if set(capped.GEOID) != set(capl.GEOID) or (capl.value_before.isna() | capl.value_after.isna()).any(): probs.append("cap changes not all logged")
-    filled = t[t.poverty_pct.isna() & t.poverty_pct_best.notna()]
-    fl = i[i.type == "mixed years"].set_index("GEOID")
-    if set(filled.GEOID) != set(fl.index): probs.append("fills not all logged")
-    if (filled.poverty_snap_source != "USDA Atlas (older years)").any(): probs.append("fill without source label")
-    bad = [g for g, v in zip(filled.GEOID, filled.poverty_pct_best) if f"poverty {v:.1f}%" not in str(fl.value_after.get(g, ""))]
-    if bad: probs.append(f"{len(bad)} fills missing value_after")
-    same = t[t.poverty_pct.notna() & (t.poverty_pct != t.poverty_pct_best)]
-    if len(same): probs.append(f"{len(same)} Census values silently changed")
-    if i[["value_before", "value_after"]].isna().any().any() or (i.value_before.astype(str) == "").any(): probs.append("empty before/after cells")
-    return ("FAIL" if probs else "PASS"), "; ".join(probs) or f"968 in/968 out, 0 dupes, pop 4,688,329, {len(capl)} caps + {len(fl)} fills + {int(i.type.eq('fixed').sum())} recodes all logged with before/after"
+    """Compare independent region unions, hashes and values; ensure no silent deletion."""
+    details=[]
+    for region,n in [('fl',490),('nyc',2327),('slc',268)]:
+        b,q=run(region);t=b.table
+        counties=set(REGIONS[region]['counties'])
+        expected={g for g in set(source('poverty').index)|set(source('general').index) if g[:5] in counties}
+        assert set(t.tract_id)==expected and len(t)==n and t.tract_id.nunique()==n
+        for s in b.manifest['sources']:
+            assert hashlib.sha256(Path(s['source_file']).read_bytes()).hexdigest()==s['source_sha256'],'Raw source changed'
+        if region=='fl': assert t.transport_lack_pct.isna().all()
+        details.append(f'{region}: {len(t)} retained')
+    return '; '.join(details)+'; source byte hashes unchanged; union preserved; no duplicate joins'
 
-def e3(random_extra=False):
-    t, _, _ = data(); u = usda_raw(); acs = {"S1701": acs_raw("poverty", "S1701"), "S2201": acs_raw("snap", "S2201")}
-    picks = list(t.sample(10, random_state=42).GEOID)
-    if random_extra: picks += list(t.sample(10).GEOID)
-    mism = []
-    for g in picks:
-        r = t.set_index("GEOID").loc[g]; src = u.loc[g]; urb = src.Urban == "1"
-        checks = [("population_2020", float(src.POP2020)), ("group_quarters_pct", float(src.PCTGQTRS)),
-                  ("low_income_people_far_from_store", float(src.DD_SRAM_lalowi1 if urb else src.DD_SRAM_lalowi10)),
-                  ("car_free_homes_far_from_store", float(src.DD_SRAM_lahunv1 if urb else src.DD_SRAM_lahunv10))]
-        if g in acs["S1701"].index:
-            checks += [("poverty_pct", C.to_number(acs["S1701"].loc[g, "S1701_C03_001E"])[0]), ("snap_households_pct", C.to_number(acs["S2201"].loc[g, "S2201_C04_001E"])[0])]
-        for col, want in checks:
-            got = r[col]
-            if not ((pd.isna(got) and pd.isna(want)) or abs(float(got) - float(want)) < 1e-9): mism.append(f"{g} {col} {got}!={want}")
-    return ("FAIL" if mism else "PASS"), "; ".join(mism[:5]) or f"{len(picks)} tracts × up to 6 fields match source cells exactly"
+
+def raw_number(v):
+    """Reference parser for the selected source percentage/count cells only."""
+    try: return float(v)
+    except (ValueError,TypeError): return np.nan
+
+
+def equal(got,want):
+    assert (pd.isna(got) and pd.isna(want)) or abs(float(got)-float(want))<1e-8,f'Source mismatch: {got} vs {want}'
+
+
+def e3():
+    """Stratify spot checks around missing codes, group settings and definition changes."""
+    paired=0;sampled=0;detail=[]
+    p=source('poverty');s=source('snap');g=source('general');d=source('driving');sd=source('straight')
+    for region in REGIONS:
+        b,q=run(region);t=b.table.set_index('tract_id')
+        picks=list(t.sample(10,random_state=42).index)
+        # Add every unmatched ACS-only tract and representative edge cases.
+        for mask in [t.poverty_pct.isna(),t.group_quarters_pct.ge(25),t.urban.eq(0),t.lila_half10_driving.ne(t.lila_half10_straight)]:
+            picks+=list(t[mask].index[:2])
+        picks=list(dict.fromkeys(picks))
+        for gid in picks:
+            r=t.loc[gid]
+            if gid in p.index: equal(r.poverty_pct,raw_number(p.loc[gid,'S1701_C03_001E']))
+            if gid in s.index: equal(r.snap_pct,raw_number(s.loc[gid,'S2201_C04_001E']))
+            if gid in g.index:
+                equal(r.population_2020,raw_number(g.loc[gid,'POP2020']))
+                equal(r.group_quarters_pct,raw_number(g.loc[gid,'PCTGQTRS']))
+            if gid in d.index:
+                equal(r.lila_half10_driving,raw_number(d.loc[gid,'DD_SRAM_LILATracts_halfAnd10']))
+                equal(r.low_access_population_half10,raw_number(d.loc[gid,'DD_SRAM_LAPOP05_10']))
+            if gid in sd.index: equal(r.lila_half10_straight,raw_number(sd.loc[gid,'SD_SRAM_LILATracts_halfAnd10']))
+        matched=t.poverty_pct.notna() & t.usda_poverty_pct.notna()
+        assert np.allclose(t.loc[matched,'poverty_pct'],t.loc[matched,'usda_poverty_pct'])
+        paired+=int(matched.sum());sampled+=len(picks)
+        seeded=b.table.dropna(subset=['poverty_pct']).head(1).copy();seeded['usda_poverty_pct']=seeded.poverty_pct+5.1
+        assert detect(seeded).rule_id.eq('R15').any()
+        detail.append(f'{region}: {len(picks)} stratified tracts')
+    assert paired==2992
+    return '; '.join(detail)+f'; {paired:,} paired poverty cells identical (same upstream ACS); seeded disagreement detected'
+
 
 def e4():
-    t, _, _ = data(); top = C.top_need(t, 10); probs = []
-    bad = top[(top.group_quarters_pct >= C.GQ_LIMIT) | (top.population_2020 < C.TINY_POP) | top.needs_review]
-    if len(bad): probs.append(f"{len(bad)} flagged tracts in top 10")
-    t2, _, _ = C.run()
-    if list(C.top_need(t2, 10).GEOID) != list(top.GEOID): probs.append("not deterministic")
-    rng = np.random.default_rng(7); overlaps = []
-    for _ in range(20):
-        p = t.copy(); p["low_income_people_far_from_store"] = p.low_income_people_far_from_store * (1 + rng.normal(0, 0.01, len(p)))
-        overlaps.append(len(set(C.top_need(p, 10).GEOID) & set(top.GEOID)))
-    if min(overlaps) < 8: probs.append(f"min overlap {min(overlaps)}/10 under 1% noise")
-    return ("FAIL" if probs else "PASS"), "; ".join(probs) or f"0 flagged in top 10, deterministic, 1% noise overlap min {min(overlaps)}/10 (20 trials)"
+    """Independent score oracle and sensitivity diagnostics (not an arbitrary stability gate)."""
+    b,_=run('fl');t=b.table.assign(review_complete=True)
+    a=rank(t);again=rank(t.copy())
+    pd.testing.assert_series_equal(a.score,again.score)
+    valid=t.poverty_pct.between(0,100)&t.low_access_population_pct_half10.between(0,100)
+    ref=t.loc[valid]
+    for idx in ref.sample(10,random_state=7).index:
+        p=ref.poverty_pct;la=ref.low_access_population_pct_half10
+        pr=(p.lt(p.loc[idx]).sum()+.5*p.eq(p.loc[idx]).sum())/len(ref)
+        ar=(la.lt(la.loc[idx]).sum()+.5*la.eq(la.loc[idx]).sum())/len(ref)
+        assert abs(a.loc[idx,'score']-50*(pr+ar))<1e-9
+    assert not a.gap_type.str.contains('Transport').any()
+    assert a.loc[~valid,'score'].isna().all()
+    assert not a.confidence.eq('High').any()
+    top=set(a.nsmallest(10,'model_rank').tract_id);rng=np.random.default_rng(14)
+    noise=[];moe=[]
+    for _ in range(10):
+        x=t.copy();x['poverty_pct']=(x.poverty_pct*(1+rng.normal(0,.01,len(x)))).clip(0,100)
+        noise.append(len(top&set(rank(x).nsmallest(10,'model_rank').tract_id)))
+        x=t.copy();x['poverty_pct']=(x.poverty_pct+rng.normal(0,1,len(x))*x.poverty_moe90/1.645).clip(0,100)
+        moe.append(len(top&set(rank(x).nsmallest(10,'model_rank').tract_id)))
+    swaps={}
+    for r in REGIONS:
+        x=run(r)[0].table
+        comparable=x.lila_half10_driving.notna() & x.lila_one10_driving.notna()
+        swaps[r]=int(x.loc[comparable,'lila_half10_driving'].ne(x.loc[comparable,'lila_one10_driving']).sum())
+    return f'10 independent midrank checks; deterministic; FL missing transport never zero. Top-10 overlap in 10 trials: 1% noise {min(noise)}–{max(noise)}, MOE-aware {min(moe)}–{max(moe)}. Definition-change flags among comparable records: {swaps}'
 
-NUM = re.compile(r"(?<![\w.])\d[\d,]*(?:\.\d+)?")
-def numbers(txt): return [float(x.replace(",", "")) for x in NUM.findall(txt)]
-REQUIRED = ["tract-level issues plus one statewide CDC gap", "no original value", "left out of the ranking"]
-def term_problems(txt, car):
-    low = txt.lower(); out = []
-    for m in re.finditer(re.escape(car), txt):
-        if "household" in low[m.start():m.end() + 60]: out.append(f"'{car}' called households")
-    if re.search(r"(car-free|no car|without a car|no vehicle)[^.]{0,20}household", low): out.append("car-free figure called households")
-    out += [f"missing framing: {r}" for r in REQUIRED if r.lower() not in low]
-    return out
 
-def e5(skip, n):
-    t, i, s = data(); base = C.health_report(t, i, s); allowed = set(numbers(base))
-    # stats-backed check: headline numbers in the template equal the summary
-    head = [s["files_in"], s["tracts"], s["tract_issues"], s["corrected"], s["filled"], s["ranking_out"], s["out_size"], s["out_shaky"]]
-    miss = [h for h in head if float(h) not in allowed]
-    class Boom:
+def e5(skip=False,n=1):
+    """Offline semantic correctness is mandatory; live model availability is separate."""
+    b,q=run('fl');base=evidence_report(b,q)
+    assert '490 neighborhoods' in base and '157 neighborhoods' in base
+    assert 'ACS 2020–24' in base and '2020 population base' in base
+    class Down:
         class models:
             @staticmethod
-            def generate_content(**k): raise RuntimeError("simulated outage")
-    txt, mode = RP.make_report(t, i, s, client_factory=Boom)
-    fb_ok = mode.startswith("template") and txt == base
-    key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
-    if miss or not fb_ok: return "FAIL", f"template missing {miss}; fallback ok={fb_ok}"
-    if skip or not key: return "SKIP", "Gemini runs skipped (no key or --skip-gemini); template numbers match stats and fallback triggers on failure"
-    s_car = f"{t.car_free_homes_far_from_store.sum():,.0f}"
-    tp = term_problems(base, s_car)
-    if tp: return "FAIL", f"template wording: {tp}"
-    def one(_):
-        txt, mode = RP.make_report(t, i, s)
-        if mode != "gemini": return mode, []
-        terms = term_problems(txt, s_car)
-        bad = terms + [x for x in numbers(txt) if not any(abs(x - a) <= max(0.051, a * 0.005) for a in allowed) and x not in (1, 2, 3, 10, 2020, 2024, 2025)]
-        return mode, bad
-    with cf.ThreadPoolExecutor(n) as ex: outs = list(ex.map(one, range(n)))
-    ok = [o for o in outs if o[0] == "gemini"]; unfaithful = [o for o in ok if o[1]]
-    detail = f"{len(ok)}/{n} Gemini runs returned; {len(ok) - len(unfaithful)} fully faithful; fallback ok"
-    if unfaithful: detail += f"; unsupported numbers: {unfaithful[0][1][:5]}"
-    if not ok: return "SKIP", detail + f" (Gemini unavailable: {outs[0][0]})"
-    return ("FAIL" if unfaithful else "PASS"), detail
+            def generate_content(**kwargs): raise TimeoutError('simulated outage')
+    txt,mode=make_report(b,q,client_factory=Down)
+    assert txt==base and mode.startswith('template')
+    assert not validate_generated(base.replace('157 neighborhoods','157 households'),base)
+    assert not validate_generated(base.replace('2020–24','2010–14'),base)
+    assert not validate_generated(base+' There is surplus stock.',base)
+    if skip or not os.getenv('GEMINI_API_KEY'):
+        record('5b','Optional live Gemini','SKIP','0 attempts: --skip-gemini or key not present; offline template is tested separately')
+    else:
+        modes=[]
+        for _ in range(n):
+            txt,mode=make_report(b,q,use_gemini=True);modes.append(mode)
+            assert txt==base or validate_generated(txt,base)
+        ok=sum(mode=='gemini' for mode in modes)
+        rejected=any('rejected' in mode for mode in modes)
+        status='FAIL' if rejected else 'PASS' if ok else 'SKIP'
+        record('5b','Optional live Gemini',status,f'{n} attempts; {ok} accepted by exact paragraph semantic gate; modes: {modes}')
+    return 'Template indicator/geography/unit/year checks pass; simulated timeout uses identical fallback; swapped units/years and invented stock rejected'
+
 
 def e6():
-    t, _, _ = data(); top = C.top_need(t, 10).merge(R.centroids()[["GEOID", "lat", "lon"]], on="GEOID"); top["label"] = top.GEOID
-    inv = pd.read_csv("examples/EXAMPLE_food_bank_inventory.csv"); probs = []
-    plan, left = R.match_inventory(top.assign(demand=top.low_income_people_far_from_store), inv)
-    used = plan.groupby("from_site").pounds.sum()
-    for r in inv.itertuples():
-        if used.get(r.name, 0) > r.pounds_available + 1: probs.append(f"{r.name} over capacity")
-    if set(plan.GEOID) != set(top.GEOID): probs.append(f"{len(set(top.GEOID) - set(plan.GEOID))} tracts unmatched")
-    if not plan.miles.between(0.0001, 60).all(): probs.append(f"distance out of range: {plan.miles.min()}–{plan.miles.max()}")
-    near = R.nearest_stores(top, pd.read_csv("data/grocery_stores.csv"), 2)
-    if not near.miles.between(0, 60).all(): probs.append("store distance out of range")
-    return ("FAIL" if probs else "PASS"), "; ".join(probs) or f"{len(plan)} legs, {int(plan.pounds.sum()):,}/{int(inv.pounds_available.sum()):,} lb used, all 10 tracts matched, {plan.miles.min()}–{plan.miles.max()} mi"
+    result=pytest('tests/test_evidence.py::test_store_requires_evidence_and_preserves_disputes','tests/test_evidence.py::test_review_order_and_undo','tests/test_evidence.py::test_resolution_only_reopens_for_a_new_conflicting_vote','tests/test_workflow.py::test_edits_and_operational_choices_do_not_mutate_raw_or_model','tests/test_workflow.py::test_bundle_replays_and_contains_no_private_inventory')
+    return result+'; full append history, both vote orders, stale save, restart, undo, explicit resolution/reopen, and export replay verified'
+
 
 def e7():
+    """Exercise the actual app in each region, then round-trip a complete export."""
     from streamlit.testing.v1 import AppTest
-    os.environ["USE_GEMINI"] = "0"
-    at = AppTest.from_file(os.path.abspath("app.py"), default_timeout=180); at.run()
-    if at.exception: return "FAIL", f"step 1 exception: {at.exception[0].message[:200]}"
-    at.button[0].click().run()
-    if at.exception: return "FAIL", f"after clean: {at.exception[0].message[:200]}"
-    heads = [h.value for h in at.header]
-    if not all(any(f"Step {k}" in h for h in heads) for k in (1, 2, 3)): return "FAIL", f"missing steps: {heads}"
-    at.checkbox[0].check().run()
-    if at.exception: return "FAIL", f"routing example: {at.exception[0].message[:200]}"
-    # downloads: same objects the buttons serve
-    t, i, s = data(); txt, _ = RP.make_report(t, i, s)
-    import io
-    a = pd.read_csv(io.StringIO(t.to_csv(index=False))); b = pd.read_csv(io.StringIO(i.to_csv(index=False)))
-    if len(a) != 968 or len(b) == 0 or len(txt) < 200: return "FAIL", "a download is empty"
-    return "PASS", f"3 steps rendered, routing example ran, 0 exceptions; downloads: clean CSV {len(a)} rows, issues CSV {len(b):,} rows, report {len(txt):,} chars"
+    details=[]
+    old=os.environ.get('BEACON_REVIEW_DB')
+    try:
+        with tempfile.TemporaryDirectory(prefix='beacon-eval-',dir=ROOT/'data/review') as temp:
+            os.environ['BEACON_REVIEW_DB']=str(Path(temp)/'app.db')
+            a=AppTest.from_file(str(ROOT/'app.py'),default_timeout=90).run()
+            # Exercise the real form: two named reviewers disagree and resolve.
+            a.radio(key='step').set_value('2 · Review').run()
+            first_q=run('fl')[1];pid=first_q[first_q.rule_id.eq('R14')].iloc[0].proposal_id
+            def widget(group,label):
+                return next(w for w in group if w.label==label)
+            a.text_input(key='reviewer').set_value('Eval UI A')
+            widget(a.text_area,'Reason / context (required)').set_value('SIMULATED UI TEST: acknowledge the years limitation.')
+            widget(a.button,'Save decision').click().run()
+            widget(a.selectbox,'Queue view').select('All review records').run()
+            widget(a.selectbox,'Choose a review card').select(pid).run()
+            a.text_input(key='reviewer').set_value('Eval UI B')
+            widget(a.selectbox,'Decision').select('Reject')
+            widget(a.text_area,'Reason / context (required)').set_value('SIMULATED UI TEST: request newer evidence.')
+            widget(a.button,'Save decision').click().run()
+            rid=run('fl')[0].manifest['run_id']
+            assert ReviewStore(os.environ['BEACON_REVIEW_DB']).state(rid,pid)['status']=='disputed'
+            a.text_input(key='reviewer').set_value('Eval UI resolver')
+            widget(a.selectbox,'Decision').select('Accept')
+            widget(a.text_area,'Reason / context (required)').set_value('SIMULATED UI TEST: retain the old base with its visible caution.')
+            widget(a.checkbox,'Save as an explicit resolution').check()
+            widget(a.button,'Save decision').click().run()
+            assert ReviewStore(os.environ['BEACON_REVIEW_DB']).state(rid,pid)['status']=='resolved'
+            assert not a.exception
+            for region in REGIONS:
+                a.selectbox(key='region').select(region).run()
+                for step in ['1 · Load','2 · Review','3 · Use']:
+                    a.radio(key='step').set_value(step).run()
+                    assert not a.exception,f'{region} {step}: {a.exception}'
+                    assert any(f'Step {step[0]}' in h.value for h in a.header)
+                b,q=run(region);s=ReviewStore(Path(temp)/(region+'.db'));rid=b.manifest['run_id']
+                s.register(rid,q,b.manifest)
+                # Deliberately demonstrate an honest provisional reviewer acknowledgment.
+                p=q[q.rule_id.eq('R14')].iloc[0]
+                s.decide(rid,p.proposal_id,'Accept','Eval reviewer','Understand the component years; not a freshness repair.')
+                raw=export_bundle(b,q,s)
+                pd.testing.assert_frame_equal(replay_export(raw),s.apply(rid,b.table),check_dtype=False,check_exact=True)
+                details.append(f'{region}: 3 UI steps, {len(b.table)} export rows')
+    finally:
+        if old is None: os.environ.pop('BEACON_REVIEW_DB',None)
+        else: os.environ['BEACON_REVIEW_DB']=old
+    return '; '.join(details)+'; UI disagreement/resolution exercised; replayed views exactly match; no dispatch or inventory upload'
+
 
 def main():
-    ap = argparse.ArgumentParser(); ap.add_argument("--only", default=""); ap.add_argument("--skip-gemini", action="store_true")
-    ap.add_argument("--gemini-n", type=int, default=3); ap.add_argument("--random", action="store_true"); a = ap.parse_args()
-    only = {int(x) for x in a.only.split(",") if x}
-    evals = [(1, "Cleaning correctness (unit tests)", e1), (2, "Real-data integrity", e2), (3, "Source spot-check", lambda: e3(a.random)),
-             (4, "Ranking sanity", e4), (5, "Gemini report faithfulness", lambda: e5(a.skip_gemini, a.gemini_n)), (6, "Routing", e6), (7, "End-to-end smoke", e7)]
-    t0 = time.time()
-    for n, name, fn in evals:
-        if only and n not in only: continue
-        try: st, d = fn()
-        except Exception as ex: st, d = "FAIL", f"crashed: {type(ex).__name__}: {ex}"; traceback.print_exc()
-        record(n, name, st, d)
-    ts = datetime.datetime.now().astimezone().isoformat(timespec="seconds")
-    cnt = {k: sum(r["status"] == k for r in RES) for k in ("PASS", "FAIL", "SKIP")}
-    out = dict(timestamp=ts, seconds=round(time.time() - t0, 1), summary=cnt, results=RES)
-    json.dump(out, open("evals/results/latest.json", "w"), indent=1)
-    md = [f"# Eval scorecard — {ts}", "", f"**{cnt['PASS']} pass · {cnt['FAIL']} fail · {cnt['SKIP']} skip** ({out['seconds']} s)", "", "| # | Eval | Result | Detail |", "|---|---|---|---|"]
-    md += [f"| {r['id']} | {r['name']} | {r['status']} | {r['detail'].replace('|', '/')} |" for r in RES]
-    open("evals/results/latest.md", "w").write("\n".join(md) + "\n")
-    print("\n" + "\n".join(md)); sys.exit(1 if cnt["FAIL"] else 0)
+    ap=argparse.ArgumentParser();ap.add_argument('--only',default='');ap.add_argument('--skip-gemini',action='store_true');ap.add_argument('--gemini-n',type=int,default=1)
+    args=ap.parse_args();only=set(args.only.split(',')) if args.only else set()
+    suites=[(1,'Rules / schema acceptance',e1),(2,'Real-data integrity / coverage',e2),(3,'Independent source checks',e3),(4,'Rank / confidence / sensitivity',e4),(5,'Offline report faithfulness',lambda:e5(args.skip_gemini,max(1,args.gemini_n))),(6,'Human review / audit',e6),(7,'End-to-end / export replay',e7)]
+    start=time.monotonic()
+    for id,name,fn in suites:
+        if only and str(id) not in only: continue
+        try: record(id,name,'PASS',fn())
+        except Exception as exc:
+            traceback.print_exc();record(id,name,'FAIL',f'{type(exc).__name__}: {exc}')
+    counts={s:sum(r['status']==s for r in RESULTS) for s in ('PASS','FAIL','SKIP')}
+    stamp=datetime.now(ZoneInfo('America/New_York')).isoformat(timespec='seconds')
+    out=dict(timestamp=stamp,timezone='America/New_York (ET)',seconds=round(time.monotonic()-start,1),summary=counts,results=RESULTS)
+    folder=ROOT/'evals/results';folder.mkdir(parents=True,exist_ok=True)
+    (folder/'latest.json').write_text(json.dumps(out,indent=2))
+    md=[f'# Beacon redesign scorecard · {stamp} ET','',f"**{counts['PASS']} PASS · {counts['FAIL']} FAIL · {counts['SKIP']} SKIP** ({out['seconds']} seconds)",'','| # | Suite | Result | Evidence |','|---|---|---|---|']
+    md += [f"| {r['id']} | {r['name']} | {r['status']} | {r['detail'].replace('|','/')} |" for r in RESULTS]
+    (folder/'latest.md').write_text('\n'.join(md)+'\n');print('\n'+'\n'.join(md))
+    return 1 if counts['FAIL'] else 0
 
-if __name__ == "__main__": main()
+
+if __name__=='__main__': sys.exit(main())

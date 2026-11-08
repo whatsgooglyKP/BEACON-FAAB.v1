@@ -1,36 +1,37 @@
-# Evals: how we know the cleaner can be trusted
+# How to evaluate Beacon Evidence Review
 
-## Run
+Run from the repo root with the required public files installed:
+
 ```bash
-.venv/bin/python -m evals.run                 # all 7 evals (or: make eval)
-.venv/bin/python -m evals.run --only 2,3      # just some evals
-.venv/bin/python -m evals.run --skip-gemini   # no Gemini calls (or: make eval-fast)
-.venv/bin/python -m evals.run --gemini-n 5    # more Gemini runs
-.venv/bin/python -m evals.run --random        # adds 10 unseeded tracts to the spot check
+.venv/bin/python -m pytest -q tests
+.venv/bin/python -m evals.run
+.venv/bin/python -m evals.run --skip-gemini
+.venv/bin/python -m evals.run --only 2,3
+.venv/bin/python -m evals.run --only 5 --gemini-n 1
 ```
-Results print as a scorecard and are saved to `evals/results/latest.md` and `latest.json`, with a timestamp. The exit code is 1 if anything fails.
-The raw Beacon files must be present in `data/beacon/` (they are gitignored).
 
-## What each eval checks
-| # | Eval | What it checks | Why it matters |
-|---|---|---|---|
-| 1 | Cleaning correctness | Unit tests on tiny hand-made data with known answers: tract IDs normalized, suppressed codes → blank, top-coded values kept, >100% capped *and* logged, fills labeled by source, uploads joined, routing math | Proves each cleaning rule does exactly what we say |
-| 2 | Real-data integrity | 968 tracts in = 968 out; no duplicate IDs; population totals 4,688,329; raw columns identical to USDA; every cap, fill and recode has a log row with before/after; no Census value changed silently | Shows cleaning didn't lose, duplicate or quietly alter data |
-| 3 | Source spot-check | 10 tracts (fixed seed 42, optionally 10 random) compared field-by-field to the original USDA and Census cells | An independent check against the original files |
-| 4 | Ranking sanity | No dorm-heavy, tiny or flagged tracts in the top 10; same top 10 on a re-run; top 10 overlaps ≥ 8/10 after adding 1% random noise (20 trials) | Rankings aren't driven by bad data or tiny wobbles |
-| 5 | Gemini faithfulness | Car-free figure must be called homes/housing units, never households; required framings present; every number in Gemini's report must appear in the stats-based template (rounding tolerance); headline numbers must match the summary; a simulated Gemini failure must fall back to the template. SKIP if no key or Gemini is down | The AI can't invent numbers, and the app still works without it |
-| 6 | Routing | Uses the **made-up EXAMPLE** inventory. No site ships more than it has; every top tract is matched when supply suffices; distances are between 0 and 60 miles | Routing suggestions are physically possible |
-| 7 | End-to-end smoke | Runs the real app headlessly through steps 1→3 plus the routing example; no exceptions; clean CSV, problem CSV and report are non-empty and parseable | The demo won't crash |
+The command exits nonzero if any mandatory suite or attempted semantic model check fails. `evals/results/latest.json` and `latest.md` record actual outcomes with America/New_York (ET) timestamps. A partial `--only` run replaces the latest scorecard, so run the full command before presenting final results.
 
-## Reading the scorecard
-- **PASS:** the check held.
-- **FAIL:** something is wrong; the detail says what.
-- **SKIP:** the check couldn't run (usually no Gemini key or Gemini overloaded). Its non-Gemini parts (template numbers, fallback) still ran.
+| Suite | Evidence checked |
+|---|---|
+| 1. Rules/schema | Independent fixtures for all 18 rules, exact tract-ID rules, source codes/bounds, missingness reasons, domain/denominator safety, imprecision, ranking ties/cohorts, consensus and workflow tests. Legacy cleaner tests are archived, not counted as redesigned passes. |
+| 2. Real-data integrity/coverage | Independently computed county-ID union; 490 FL / 2,327 NYC / 268 Salt Lake+Tooele; no many-to-many duplication; source hashes unchanged; Florida transportation stays missing. |
+| 3. Independent source checks | At least ten tracts per community plus stratified missing-code, unmatched, group-setting, rural and definition-sensitivity cases. Direct poverty/SNAP cells, population, group quarters, both LILA methods and access counts. All 2,992 paired numeric poverty cells must agree; seeded >5-point conflict must be detected. |
+| 4. Rank/confidence/sensitivity | Independent empirical-midrank oracle; deterministic results; missing mandatory inputs unscored; Florida transport never zero/transport gap; Medium maximum confidence. Actual 1% noise and MOE-aware top-ten overlap is **reported**, not forced to satisfy an arbitrary stability threshold. Definition sensitivity is counted separately. |
+| 5. Offline report faithfulness | Source-appropriate counts, units, universes and years; exact fallback under simulated timeout; same-number/wrong-unit, wrong-year and invented-stock attacks rejected. |
+| 5b. Optional live Gemini | Separate PASS/FAIL/SKIP, with actual attempt count. No key, explicit skip, timeout or server/model unavailability is **not a pass**. A returned response that fails the semantic gate is a model FAIL even though a usable offline fallback is retained. |
+| 6. Human review/audit | Accept/Reject/source-backed Edit/Undo; required names/reasons/citations; source/domain validation; both conflict save orders; no last-writer-wins; stale saves; persisted restart; explicit resolution/reopening; notes, human/model-order separation; exact export replay. |
+| 7. End-to-end/exports | Actual Streamlit Load/Review/Use in all three communities using a temporary review database; no app exceptions; all export rows retained and full audit replay matches reviewed data. No inventory upload or dispatch step. |
 
-## If one fails
-1. Unit tests failing means a cleaning rule changed: `make test` shows which.
-2. Integrity or spot-check failing means the source files changed or a cleaning step altered data. Compare against `data/clean/issues.csv`.
-3. Ranking failing means a flagged tract got in, or the ranking is unstable. Check `top_need()` in `clean.py`.
-4. Gemini failing means the report used a number not in the stats. Tighten the prompt in `report.py`, or present the template report.
-5. Routing failing: check `routing.match_inventory`.
-6. Smoke failing: run `streamlit run app.py` and read the error.
+## Interpreting the results
+
+- “PASS” proves the stated implementation check on these files/fixtures, **not** that a flagged tract is hungry, a resource has capacity, or the intervention works.
+- The 157/37/48 LILA values are source flags, not approved shortlist sizes. FL's 129 high-CV poverty/SNAP estimates are 76+53 **estimates** across 97 distinct flagged tracts, not 129 neighborhoods. Undefined zero-estimate CV is separate.
+- A missing/imprecise estimate is not a corrected number. Acknowledgment does not fix coverage or freshness. Three ACS-only NYC tracts remain visible even when unscored.
+- Simulated review identities are explicitly test/demo identities, not practitioner validation. SQLite tests use temporary databases; the app's real review decisions are not overwritten.
+- Live Gemini uses `gemini-3.8-flash` only when a key is present in the environment; 150-second timeout. The key is never printed, placed in fixtures, or exported. No model is needed for the deterministic pipeline.
+- Exact approved paragraph matching is intentionally stricter than numeric matching: it prevents swapping correct numbers between the wrong geographies/units/years. The chat is bounded, not an unrestricted research assistant.
+
+## Qualitative usability check (not yet performed)
+
+Ask Kevin to explain a flag, find its source/year, reject a proposal, recognize disagreement and explain one shortlisted tract, without coaching. Record completion/confusions. Do not claim validated user impact without this check. A separate human code review is also recommended before production use.

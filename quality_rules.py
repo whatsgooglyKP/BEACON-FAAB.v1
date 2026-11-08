@@ -44,6 +44,7 @@ def detect(table, manifest=None):
     manifest=manifest or {}; rows=[]; t=table.copy()
     def add(rule, gid='', field='', before=None, after=None, kind='caution', auto=False, relevant=True, extra='', **source):
         name,confidence,reason=RULES[rule]
+        if rule=='R02' and not auto: confidence='Low'
         raw=dict(tract_id=gid,rule_id=rule,field=field,before=before,after=after)
         pid=hashlib.sha256(json.dumps(raw,sort_keys=True,default=str).encode()).hexdigest()[:20]
         rows.append(dict(proposal_id=pid,**raw,rule_name=name,kind=kind,confidence=confidence,
@@ -88,16 +89,19 @@ def detect(table, manifest=None):
             if pd.isna(r.get(f)): add('R13',gid,f,r.get(f+'_raw','absent'),extra=f'Field: {f}; reason: {r.get(f+"_missing_reason","source_row_absent")}.')
         if pd.notna(r.get('poverty_pct')) and pd.notna(r.get('usda_poverty_pct')) and abs(r.poverty_pct-r.usda_poverty_pct)>5:
             add('R15',gid,'poverty_pct',float(r.poverty_pct),float(r.usda_poverty_pct),kind='value_change',source_id='usda_general',source_column='PovertyRate')
+        if pd.notna(r.get('population_2020')) and r.population_2020<=0:
+            add('R07',gid,'low_access_population_pct_half10',r.get('population_2020'),extra='The population denominator is zero or invalid. No ratio can be calculated.')
         primary=r.get('lila_half10_driving')
         if pd.notna(primary) and any(pd.notna(r.get(f)) and r.get(f)!=primary for f in ('lila_one10_driving','lila_half10_straight')):
             add('R17',gid,'lila_half10_driving',float(primary),extra=f'Half/10 driving={primary:g}; 1/10 driving={r.get("lila_one10_driving")}; half/10 straight={r.get("lila_half10_straight")}. Default unchanged.')
     for f in ('poverty_pct','snap_pct','low_access_population_pct_half10','median_household_income'):
         if f not in t: continue
         valid=t[f].dropna()
+        valid=valid[valid.between(0,100)] if 'pct' in f else valid[valid.ge(0)]
         if len(valid)<20: continue
         a,b=valid.quantile([.25,.75]); spread=b-a
         if spread<=0: continue
-        for _,r in t[t[f].lt(a-3*spread)|t[f].gt(b+3*spread)].iterrows():
+        for _,r in t[t.index.isin(valid.index)&(t[f].lt(a-3*spread)|t[f].gt(b+3*spread))].iterrows():
             add('R16',r.tract_id,f,float(r[f]),relevant=f in CORE_FIELDS,extra='Prototype threshold: outside three interquartile ranges; no clipping.')
     for gid in manifest.get('missing_usda_ids',[]): add('R18',gid,'usda_geography','source row absent',extra='ACS-only tract retained in union, not dropped.')
     result=pd.DataFrame(rows,columns=PROPOSAL_COLUMNS).drop_duplicates('proposal_id')

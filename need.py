@@ -31,6 +31,8 @@ def rank(table):
     for field in ('poverty_pct','low_access_population_pct_half10'):
         t[field]=pd.to_numeric(t.get(field,np.nan),errors='coerce')
         t.loc[~t[field].between(0,100),field]=np.nan
+    if 'transport_lack_pct' in t:
+        t['transport_lack_pct']=pd.to_numeric(t.transport_lack_pct,errors='coerce').where(t.transport_lack_pct.between(0,100))
     complete=t.poverty_pct.notna() & t.low_access_population_pct_half10.notna()
     n=int(complete.sum())
     t['poverty_percentile']=midranks(t.poverty_pct.where(complete))
@@ -71,8 +73,12 @@ def rank(table):
             t.at[i,'resource_category']='No automatic recommendation'; t.at[i,'review_tier']='Review required'
         moe=r.get('poverty_moe90',np.nan)
         imprecise=pd.isna(moe) or (r.poverty_pct==0 and moe>0) or (r.poverty_pct!=0 and moe/1.645/abs(r.poverty_pct)>.30)
-        if imprecise or r.get('has_dispute',False): t.at[i,'confidence']='Low';t.at[i,'review_tier']='Review required'
-        if r.get('group_quarters_pct',0)>=25 or r.get('population_2020',1000)<500:
+        if imprecise or r.get('has_dispute',False) or r.get('has_source_conflict',False): t.at[i,'confidence']='Low';t.at[i,'review_tier']='Review required'
+        if 'Transport-compounded' in gaps:
+            lo,hi=r.get('transport_ci_low',np.nan),r.get('transport_ci_high',np.nan)
+            if pd.isna(lo) or pd.isna(hi) or not 0<=lo<=hi<=100 or hi-lo>20 or lo<=tr75<=hi:
+                t.at[i,'confidence']='Low';t.at[i,'review_tier']='Review required'
+        if r.get('group_quarters_pct',0)>=25 or r.get('population_2020',1000)<500 or r.get('poverty_universe',1000)<100:
             t.at[i,'confidence']='Low';t.at[i,'review_tier']='Review required'
         if pd.isna(r.get('lila_half10_driving',np.nan)):
             t.at[i,'review_tier']='Review required'

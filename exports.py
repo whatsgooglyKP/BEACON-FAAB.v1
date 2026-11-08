@@ -23,7 +23,11 @@ def export_bundle(bundle,proposals,store):
     with zipfile.ZipFile(out,'w',zipfile.ZIP_DEFLATED) as z:
         def csv(name,df): z.writestr(name,df.to_csv(index=False))
         csv('baseline.csv',bundle.table);csv('reviewed.csv',reviewed);csv('observations.csv',bundle.observations)
-        z.writestr('baseline.schema.json',bundle.table.to_json(orient='table',index=False))
+        # Python JSON uses a round-trip float representation. Pandas to_json's
+        # default precision can move even source percentages by one binary ULP.
+        snapshot=dict(columns=bundle.table.columns.tolist(),dtypes={c:str(d) for c,d in bundle.table.dtypes.items()},data=bundle.table.to_dict('records'))
+        z.writestr('baseline.schema.json',_json(snapshot))
+        z.writestr('proposals.json',_json(queue.to_dict('records')))
         csv('proposals.csv',queue);csv('unresolved.csv',queue[queue.review_status.isin(['pending','disputed'])])
         csv('coverage.csv',bundle.coverage);csv('field_dictionary.csv',dictionary)
         csv('shortlist.csv',actions);csv('notes.csv',pd.DataFrame(store.notes(rid),columns=['tract_id','reviewer','note','evidence','created_at']))
@@ -37,18 +41,14 @@ def export_bundle(bundle,proposals,store):
 def replay_export(blob):
     """Replay the full exported audit log without the SQLite database or source files."""
     with zipfile.ZipFile(io.BytesIO(blob)) as z:
-        # Schema-bearing snapshot prevents CSV inference from converting raw '3529'
-        # to 3529 or losing an empty string / source-coded missing value.
-        baseline=pd.read_json(io.StringIO(z.read('baseline.schema.json').decode()),orient='table')
-        proposals=pd.read_csv(z.open('proposals.csv'),keep_default_na=False).to_dict('records')
-        # Prefer exact proposal payloads from events, while pending proposals retain
-        # numeric before/after from CSV when relevant to value patches.
-        for p in proposals:
-            for f in ('before','after'):
-                if p['kind'] in ('value_change','exclude'):
-                    p[f]=None if p[f]=='' else float(p[f])
-            for f in ('affects_ranking','auto_applied'):
-                if isinstance(p[f],str): p[f]=p[f]=='True'
+        # Use the standard JSON parser for exact IEEE-754 float round trips;
+        # restore explicit dtypes rather than letting CSV/JSON inference guess.
+        snapshot=json.loads(z.read('baseline.schema.json'))
+        baseline=pd.DataFrame(snapshot['data'],columns=snapshot['columns'])
+        for field,dtype in snapshot['dtypes'].items():
+            if dtype=='object': baseline[field]=baseline[field].where(baseline[field].notna(),float('nan'))
+            baseline[field]=baseline[field].astype(dtype)
+        proposals=json.loads(z.read('proposals.json'))
         events=json.loads(z.read('decisions.json'));groups={}
         for event in events: groups.setdefault(event['proposal_id'],[]).append(event)
         return ReviewStore._apply(baseline,proposals,{p:ReviewStore.fold(es) for p,es in groups.items()})

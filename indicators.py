@@ -14,7 +14,7 @@ import json
 import re
 import pandas as pd
 
-VERSION = 'beacon-evidence-2.0'
+VERSION = 'beacon-evidence-2.3'
 DEFINITION = 'driving-LILA-half-mile-urban-10-mile-rural'
 REGIONS = {
     'fl': {'name': 'Central Florida', 'counties': {'12069':'Lake','12095':'Orange','12097':'Osceola','12117':'Seminole'}},
@@ -129,11 +129,16 @@ def load_community(community_id='fl', base='data/beacon'):
     def ingest(path, source, id_col, mapping, encoding='utf-8-sig', extra=()):
         """Read a documented schema; preserve CSV row coordinates before filtering."""
         allcols=list(pd.read_csv(path,nrows=0,encoding=encoding).columns)
-        requested=[id_col,*mapping.values(),*extra]
+        requested=[id_col,*mapping.values(),*extra]+(['State'] if source.startswith('usda_') else [])
         missing=set(requested)-set(allcols)
         if missing: raise ValueError(f'Unexpected schema in {path.name}: {sorted(missing)}')
         raw=pd.read_csv(path,dtype=str,keep_default_na=False,encoding=encoding,usecols=requested)
         raw['_source_row']=raw.index+2
+        # Scope the national USDA file using its explicit state label *before*
+        # assessing ID damage. Other states' leading-zero encodings must not
+        # create a blocking quarantine in the selected community.
+        if source.startswith('usda_'):
+            raw=raw[raw.State.eq({'fl':'Florida','nyc':'New York','slc':'Utah'}[community_id])].copy()
         raw['tract_id']=raw[id_col].map(normalize_id)
         label=raw.tract_id.isna() & ~raw[id_col].str.contains(r'\d',regex=True)
         if label.any(): events.append(dict(rule_id='R01',tract_id='',field=source,before=f'{int(label.sum())} label row',after='excluded from analysis; raw preserved',affected_count=int(label.sum())))
@@ -160,6 +165,8 @@ def load_community(community_id='fl', base='data/beacon'):
         if 'NAME' in raw: out['tract_name']=raw.set_index('tract_id').NAME
         for field,column in mapping.items():
             cells=[parse_cell(v) for v in raw[column]]
+            if community_id=='fl' and source=='places':
+                for cell in cells: cell['missing_reason']='not_available_for_region'
             out[field]=[c['value_numeric'] for c in cells]
             out[field]=pd.to_numeric(out[field],errors='coerce')
             out[field+'_raw']=[c['value_raw'] for c in cells]
@@ -210,9 +217,13 @@ def load_community(community_id='fl', base='data/beacon'):
     wide['low_access_population_pct_half10']=100*wide.low_access_population_half10/wide.population_2020.where(wide.population_2020.gt(0))
     wide['low_access_population_pct_half10_raw']=wide.low_access_population_pct_half10
     wide['access_selected_source']='derived:usda_driving/USDA_POP2020'
-    for f in list(ACS.values()):
-        for field in f[1]:
-            wide.loc[wide[field+'_missing_reason'].isna(),field+'_missing_reason']='source_row_absent'
+    fields=[field for _,mapping in ACS.values() for field in mapping]+[field for _,mapping in USDA.values() for field in mapping]
+    for field in fields:
+        wide[field+'_missing_reason']=wide[field+'_missing_reason'].fillna('source_row_absent')
+    wide['low_access_population_pct_half10_missing_reason']=''
+    missing=wide.low_access_population_pct_half10.isna()
+    wide.loc[missing,'low_access_population_pct_half10_missing_reason']='source_row_absent'
+    wide.loc[wide.population_2020.le(0),'low_access_population_pct_half10_missing_reason']='invalid_value'
     for field in PLACES:
         if community_id=='fl':
             wide[field]=float('nan'); wide[field+'_missing_reason']='not_available_for_region'
