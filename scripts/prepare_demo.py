@@ -13,7 +13,7 @@ from review_store import ReviewStore
 def prepare(path='data/review/demo.sqlite3'):
     """Seed one explained acknowledgment and one unresolved two-reviewer example."""
     s=ReviewStore(path)
-    for region in ('fl','nyc','slc'):
+    for region in ('fl',):
         b,q=run(region);rid=b.manifest['run_id'];s.register(rid,q,b.manifest,b.observations,b.table)
         p=q[q.rule_id.eq('R14')].iloc[0]
         if s.state(rid,p.proposal_id)['version']==0:

@@ -1,0 +1,169 @@
+{
+  "method": "Independent official Census TIGERweb ACS2024 point intersection, separate from local shapefile join",
+  "checks": [
+    {
+      "tract_id": "12095017023",
+      "display_name": "Unincorporated Orange County",
+      "point_lat": 28.3648383,
+      "point_lon": -81.5009406,
+      "official_features": [],
+      "verification_urls": [
+        "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/tigerWMS_ACS2024/MapServer/28/query?f=json&geometry=-81.5009406%2C28.3648383&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=%2A&returnGeometry=false",
+        "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/tigerWMS_ACS2024/MapServer/30/query?f=json&geometry=-81.5009406%2C28.3648383&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=%2A&returnGeometry=false"
+      ],
+      "vintage": "ACS 2024 TIGERweb incorporated places and CDPs"
+    },
+    {
+      "tract_id": "12095013507",
+      "display_name": "Orlando, Orange County",
+      "point_lat": 28.4622558,
+      "point_lon": -81.2919589,
+      "official_features": [
+        {
+          "MTFCC": "G4110",
+          "OID": "27890359410208",
+          "GEOID": "1253000",
+          "STATE": "12",
+          "PLACE": "53000",
+          "BASENAME": "Orlando",
+          "NAME": "Orlando city",
+          "LSADC": "25",
+          "FUNCSTAT": "A",
+          "PLACECC": "C1",
+          "AREALAND": 287783584,
+          "AREAWATER": 21265568,
+          "CBSAPCI": "Y",
+          "NECTAPCI": "N",
+          "CENTLAT": "+28.4770074",
+          "CENTLON": "-081.3366261",
+          "INTPTLAT": "+28.4086497",
+          "INTPTLON": "-081.2548051",
+          "PLACENS": "02404443",
+          "OBJECTID": 12598,
+          "DISP_CLR": 1,
+          "STGEOMETRY_Length": 494502.7874508784,
+          "STGEOMETRY_Area": 401454647.0721864
+        }
+      ],
+      "verification_urls": [
+        "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/tigerWMS_ACS2024/MapServer/28/query?f=json&geometry=-81.2919589%2C28.4622558&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=%2A&returnGeometry=false",
+        "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/tigerWMS_ACS2024/MapServer/30/query?f=json&geometry=-81.2919589%2C28.4622558&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=%2A&returnGeometry=false"
+      ],
+      "vintage": "ACS 2024 TIGERweb incorporated places and CDPs"
+    },
+    {
+      "tract_id": "12095016746",
+      "display_name": "Alafaya, Orange County",
+      "point_lat": 28.5377698,
+      "point_lon": -81.1829458,
+      "official_features": [
+        {
+          "MTFCC": "G4210",
+          "OID": "280903717606960",
+          "GEOID": "1200410",
+          "STATE": "12",
+          "PLACE": "00410",
+          "BASENAME": "Alafaya",
+          "NAME": "Alafaya CDP",
+          "LSADC": "57",
+          "FUNCSTAT": "S",
+          "PLACECC": "U1",
+          "AREALAND": 79345615,
+          "AREAWATER": 1802378,
+          "CBSAPCI": "N",
+          "NECTAPCI": "N",
+          "CENTLAT": "+28.5279979",
+          "CENTLON": "-081.1868558",
+          "INTPTLAT": "+28.5283727",
+          "INTPTLON": "-081.1857451",
+          "PLACENS": "02583321",
+          "OBJECTID": 26866,
+          "DISP_CLR": 2,
+          "STGEOMETRY_Length": 46950.51388496898,
+          "STGEOMETRY_Area": 105511880.98786089
+        }
+      ],
+      "verification_urls": [
+        "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/tigerWMS_ACS2024/MapServer/28/query?f=json&geometry=-81.1829458%2C28.5377698&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=%2A&returnGeometry=false",
+        "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/tigerWMS_ACS2024/MapServer/30/query?f=json&geometry=-81.1829458%2C28.5377698&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=%2A&returnGeometry=false"
+      ],
+      "vintage": "ACS 2024 TIGERweb incorporated places and CDPs"
+    },
+    {
+      "tract_id": "12097041102",
+      "display_name": "Poinciana, Osceola County",
+      "point_lat": 28.206428,
+      "point_lon": -81.5191579,
+      "official_features": [
+        {
+          "MTFCC": "G4210",
+          "OID": "28090360986063",
+          "GEOID": "1257900",
+          "STATE": "12",
+          "PLACE": "57900",
+          "BASENAME": "Poinciana",
+          "NAME": "Poinciana CDP",
+          "LSADC": "57",
+          "FUNCSTAT": "S",
+          "PLACECC": "U1",
+          "AREALAND": 186135214,
+          "AREAWATER": 2770210,
+          "CBSAPCI": "N",
+          "NECTAPCI": "N",
+          "CENTLAT": "+28.1216472",
+          "CENTLON": "-081.4820435",
+          "INTPTLAT": "+28.1187292",
+          "INTPTLON": "-081.4792340",
+          "PLACENS": "02403432",
+          "OBJECTID": 21676,
+          "DISP_CLR": 5,
+          "STGEOMETRY_Length": 98681.84033570524,
+          "STGEOMETRY_Area": 243771828.3686768
+        }
+      ],
+      "verification_urls": [
+        "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/tigerWMS_ACS2024/MapServer/28/query?f=json&geometry=-81.5191579%2C28.206428&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=%2A&returnGeometry=false",
+        "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/tigerWMS_ACS2024/MapServer/30/query?f=json&geometry=-81.5191579%2C28.206428&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=%2A&returnGeometry=false"
+      ],
+      "vintage": "ACS 2024 TIGERweb incorporated places and CDPs"
+    },
+    {
+      "tract_id": "12095012000",
+      "display_name": "Pine Hills, Orange County",
+      "point_lat": 28.568977,
+      "point_lon": -81.4436536,
+      "official_features": [
+        {
+          "MTFCC": "G4210",
+          "OID": "28090359410212",
+          "GEOID": "1256825",
+          "STATE": "12",
+          "PLACE": "56825",
+          "BASENAME": "Pine Hills",
+          "NAME": "Pine Hills CDP",
+          "LSADC": "57",
+          "FUNCSTAT": "S",
+          "PLACECC": "U1",
+          "AREALAND": 31563710,
+          "AREAWATER": 1260459,
+          "CBSAPCI": "N",
+          "NECTAPCI": "N",
+          "CENTLAT": "+28.5817839",
+          "CENTLON": "-081.4692684",
+          "INTPTLAT": "+28.5818015",
+          "INTPTLON": "-081.4695358",
+          "PLACENS": "02403411",
+          "OBJECTID": 30757,
+          "DISP_CLR": 5,
+          "STGEOMETRY_Length": 33393.214600760206,
+          "STGEOMETRY_Area": 42722466.45788618
+        }
+      ],
+      "verification_urls": [
+        "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/tigerWMS_ACS2024/MapServer/28/query?f=json&geometry=-81.4436536%2C28.568977&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=%2A&returnGeometry=false",
+        "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/tigerWMS_ACS2024/MapServer/30/query?f=json&geometry=-81.4436536%2C28.568977&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=%2A&returnGeometry=false"
+      ],
+      "vintage": "ACS 2024 TIGERweb incorporated places and CDPs"
+    }
+  ]
+}

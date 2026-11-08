@@ -65,7 +65,7 @@ def e1(): return pytest('tests')
 def e2():
     """Compare independent region unions, hashes and values; ensure no silent deletion."""
     details=[]
-    for region,n in [('fl',490),('nyc',2327),('slc',268)]:
+    for region,n in [('fl',490)]:
         b,q=run(region);t=b.table
         counties=set(REGIONS[region]['counties'])
         expected={g for g in set(source('poverty').index)|set(source('general').index) if g[:5] in counties}
@@ -115,7 +115,7 @@ def e3():
         seeded=b.table.dropna(subset=['poverty_pct']).head(1).copy();seeded['usda_poverty_pct']=seeded.poverty_pct+5.1
         assert detect(seeded).rule_id.eq('R15').any()
         detail.append(f'{region}: {len(picks)} stratified tracts')
-    assert paired==2992
+    assert paired==488
     return '; '.join(detail)+f'; {paired:,} paired poverty cells identical (same upstream ACS); seeded disagreement detected'
 
 
@@ -233,7 +233,6 @@ def e7():
             assert ReviewStore(os.environ['BEACON_REVIEW_DB']).state(rid,pid)['status']=='resolved'
             assert not a.exception
             for region in REGIONS:
-                a.selectbox(key='region').select(region).run()
                 a.radio(key='step').set_value('Top 10 · Start here').run()
                 assert not a.exception and any('Your top 10' in h.value for h in a.header)
                 for step in ['1 · Load','2 · Review','3 · Use']:
@@ -270,10 +269,28 @@ def e8():
     return f'Pristine quick checks {counts}; all have real ±90% poverty-MOE membership witnesses; capped at 8, not refilled; actual UI challenge replaces a candidate without changing source estimates; stale targets are rejected. {result}'
 
 
+def e9():
+    """Names are sourced display metadata, with complete Florida coverage and no reranking."""
+    from place_names import read_lookup,LOOKUP
+    from indicators import load_community
+    lookup=read_lookup();b,_=run('fl');raw=load_community('fl')
+    assert len(lookup)==490 and set(lookup.tract_id)==set(b.table.tract_id)
+    assert lookup.display_name.str.strip().ne('').all()
+    pd.testing.assert_series_equal(rank(b.table).score,rank(raw.table).score)
+    meta=json.loads(LOOKUP.with_suffix('.sources.json').read_text())
+    assert hashlib.sha256(LOOKUP.read_bytes()).hexdigest()==meta['lookup_sha256']
+    checks=json.loads((ROOT/'data/clean/place_name_checks.json').read_text())['checks']
+    for check in checks:
+        row=lookup[lookup.tract_id.eq(check['tract_id'])].iloc[0]
+        assert row.display_name==check['display_name']
+        assert (row.place_geoid in {f['GEOID'] for f in check['official_features']}) if row.place_geoid else not check['official_features']
+    return f"Central Florida only: 490/490 non-empty labels; {meta['named']} incorporated-place/CDP point labels, {meta['unincorporated']} unincorporated labels; {meta['point_fallback']} TIGER tract-point fallback; {len(checks)} independent official Census query checks; source scores unchanged"
+
+
 def main():
     ap=argparse.ArgumentParser();ap.add_argument('--only',default='');ap.add_argument('--skip-gemini',action='store_true');ap.add_argument('--gemini-n',type=int,default=1)
     args=ap.parse_args();only=set(args.only.split(',')) if args.only else set()
-    suites=[(1,'Rules / schema acceptance',e1),(2,'Real-data integrity / coverage',e2),(3,'Independent source checks',e3),(4,'Rank / confidence / sensitivity',e4),(5,'Offline report faithfulness',lambda:e5(args.skip_gemini,max(1,args.gemini_n))),(6,'Human review / audit',e6),(7,'End-to-end / export replay',e7),(8,'Answer-first / sensitive quick checks',e8)]
+    suites=[(1,'Rules / schema acceptance',e1),(2,'Real-data integrity / coverage',e2),(3,'Independent source checks',e3),(4,'Rank / confidence / sensitivity',e4),(5,'Offline report faithfulness',lambda:e5(args.skip_gemini,max(1,args.gemini_n))),(6,'Human review / audit',e6),(7,'End-to-end / export replay',e7),(8,'Answer-first / sensitive quick checks',e8),(9,'Florida place labels / scope',e9)]
     start=time.monotonic()
     for id,name,fn in suites:
         if only and str(id) not in only: continue

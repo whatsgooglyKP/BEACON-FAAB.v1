@@ -10,6 +10,7 @@ import pandas as pd
 from review_store import ReviewStore, _json
 from need import rank, operational_view
 from report import evidence_report
+from place_names import attach_names
 
 
 def export_bundle(bundle,proposals,store):
@@ -18,10 +19,25 @@ def export_bundle(bundle,proposals,store):
     states=store.states(rid); queue=proposals.copy()
     queue['review_status']=queue.proposal_id.map(lambda p:states.get(p,{}).get('status','pending'))
     actions=operational_view(rank(reviewed),store.recommendations(rid))
+    names=bundle.place_names.set_index('tract_id').display_name.to_dict()
+    def annotated(events):
+        # Derived label annotations never replace the original proposal/source payload.
+        rows=[]
+        for event in events:
+            gid=event.get('tract_id',event.get('proposal',{}).get('tract_id',''))
+            rows.append({**event,'tract_id':gid,'display_name':names.get(gid,'Central Florida (regional notice)')})
+        return rows
+    decisions=annotated(store.events(rid));recommendations=annotated(store.recommendations(rid))
     out=io.BytesIO()
     dictionary=bundle.observations[['indicator_id','unit','universe','reference_start','reference_end','estimate_kind','definition_id','source_id','denominator_field']].drop_duplicates()
     with zipfile.ZipFile(out,'w',zipfile.ZIP_DEFLATED) as z:
-        def csv(name,df): z.writestr(name,df.to_csv(index=False))
+        def csv(name,df):
+            # Human-facing tables start with place + exact ID; JSON schema keeps
+            # original baseline order and full precision for exact replay.
+            if name!='tract_place_names.csv' and {'display_name','tract_id'}.issubset(df):
+                df=df[['display_name','tract_id']+[c for c in df if c not in ('display_name','tract_id')]]
+            z.writestr(name,df.to_csv(index=False))
+        csv('tract_place_names.csv',bundle.place_names)
         csv('baseline.csv',bundle.table);csv('reviewed.csv',reviewed);csv('observations.csv',bundle.observations)
         # Python JSON uses a round-trip float representation. Pandas to_json's
         # default precision can move even source percentages by one binary ULP.
@@ -30,9 +46,9 @@ def export_bundle(bundle,proposals,store):
         z.writestr('proposals.json',_json(queue.to_dict('records')))
         csv('proposals.csv',queue);csv('unresolved.csv',queue[queue.review_status.isin(['pending','disputed'])])
         csv('coverage.csv',bundle.coverage);csv('field_dictionary.csv',dictionary)
-        csv('shortlist.csv',actions);csv('notes.csv',pd.DataFrame(store.notes(rid),columns=['tract_id','reviewer','note','evidence','created_at']))
-        csv('decisions.csv',pd.DataFrame(store.events(rid)));csv('recommendation_events.csv',pd.DataFrame(store.recommendations(rid)))
-        z.writestr('decisions.json',_json(store.events(rid)));z.writestr('recommendation_events.json',_json(store.recommendations(rid)))
+        csv('shortlist.csv',actions);csv('notes.csv',attach_names(pd.DataFrame(store.notes(rid),columns=['tract_id','reviewer','note','evidence','created_at']),bundle.place_names))
+        csv('decisions.csv',pd.DataFrame(decisions));csv('recommendation_events.csv',attach_names(pd.DataFrame(recommendations,columns=['tract_id','display_name','reviewer','action','note','replacement','position','created_at']),bundle.place_names))
+        z.writestr('decisions.json',_json(decisions));z.writestr('recommendation_events.json',_json(recommendations))
         z.writestr('manifest.json',_json(bundle.manifest));z.writestr('health_report.md',evidence_report(bundle,proposals,reviewed))
         z.writestr('REPLAY.md','Use exports.replay_export(zip_bytes) to reconstruct reviewed.csv. CSV tract IDs must be read as strings. Baseline raw columns, source observations and null reasons are preserved. Model rank is separate from operational position. Reviewer-cited edits are not independently verified by the prototype. No source bytes or secrets are bundled.')
     return out.getvalue()

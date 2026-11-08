@@ -5,12 +5,14 @@ The old cleaner and dashboard are preserved in archive/ and app_v0_dashboard.py.
 """
 from indicators import load_community
 from quality_rules import detect
+from place_names import enrich_bundle, attach_names
 
 
 def run(community_id='fl',base='data/beacon'):
     """Return immutable evidence and review proposals, with precise source links."""
     bundle=load_community(community_id,base)
-    proposals=detect(bundle.table,bundle.manifest)
+    bundle=enrich_bundle(bundle)
+    proposals=attach_names(detect(bundle.table,bundle.manifest),bundle.place_names)
     obs=bundle.observations
     lookup={(r.tract_id,r.indicator_id,r.source_id):r for r in obs.itertuples(index=False)}
     for idx,p in proposals.iterrows():

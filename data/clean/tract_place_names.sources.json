@@ -1,0 +1,23 @@
+{
+  "scope": "Central Florida: Lake, Orange, Osceola, Seminole",
+  "sources": [
+    {
+      "file": "tl_2024_12_place.zip",
+      "url": "https://www2.census.gov/geo/tiger/TIGER2024/PLACE/tl_2024_12_place.zip",
+      "sha256": "30d57de7fd40faaf3208bef7bc00f706f70a038aacd2feb1ff1681f68216869e",
+      "vintage": "2024"
+    },
+    {
+      "file": "tl_2024_12_tract.zip",
+      "url": "https://www2.census.gov/geo/tiger/TIGER2024/TRACT/tl_2024_12_tract.zip",
+      "sha256": "dd178ccb9c5324492c22ef82c78bfbfe95ebf5248463eeb85d54b00983d85b3c",
+      "vintage": "2024"
+    }
+  ],
+  "lookup_sha256": "f58fd9e3101a5471475657cf786abc8b4274120eab1808e752ccbba12b873256",
+  "total": 490,
+  "named": 307,
+  "unincorporated": 183,
+  "point_fallback": 1,
+  "method": "Containment of supplied map point; fallback to official tract internal point. Not majority area. No nearest-place assignment."
+}

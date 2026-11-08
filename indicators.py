@@ -1,4 +1,4 @@
-"""Immutable public-source adapters shared by all three Beacon communities.
+"""Immutable public-source adapters for the Central Florida Beacon prototype.
 
 The wide table is an analytical *view*, not a replacement for the supplied files.
 Every numeric view cell has a raw observation, source coordinate, and SHA-256.
@@ -18,14 +18,12 @@ VERSION = 'beacon-evidence-2.3'
 DEFINITION = 'driving-LILA-half-mile-urban-10-mile-rural'
 REGIONS = {
     'fl': {'name': 'Central Florida', 'counties': {'12069':'Lake','12095':'Orange','12097':'Osceola','12117':'Seminole'}},
-    'nyc': {'name': 'New York City', 'counties': {'36005':'Bronx','36047':'Kings','36061':'New York','36081':'Queens','36085':'Richmond'}},
-    'slc': {'name': 'Salt Lake + Tooele', 'counties': {'49035':'Salt Lake','49045':'Tooele'}},
 }
 SOURCE_URL = 'https://drive.google.com/drive/folders/1zuwSZjkK3gcvEzNFPJ8THFRw9ulCgA-p'
 CODES = {'-', 'N', '(X)', '**', '***', '*****', 'null'}
 
 # ## Common field dictionary
-# All communities use these exact mappings. Period and universe are part of a
+# All four Central Florida counties use these exact mappings. Period and universe are part of a
 # measure's identity; adult, person, household, and housing-unit rates differ.
 ACS = {
  'poverty': ('S1701', {'poverty_pct':'S1701_C03_001E','poverty_moe90':'S1701_C03_001M','poverty_universe':'S1701_C01_001E'}),
@@ -105,6 +103,7 @@ class EvidenceBundle:
     observations: pd.DataFrame
     manifest: dict
     coverage: pd.DataFrame
+    place_names: pd.DataFrame | None = None  # Display-only lookup snapshot, attached after source loading.
 
 
 def sha256(path):

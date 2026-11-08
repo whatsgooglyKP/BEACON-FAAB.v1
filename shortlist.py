@@ -68,5 +68,9 @@ def shortlist_change(before,after):
     removed=[g for g in old if g not in new];added=[g for g in new if g not in old]
     if not removed and not added:
         return 'Top 10 membership unchanged. Your team decision was saved; public estimates and uncertainty are unchanged.'
-    return ('Working top 10 updated: '+', '.join(removed)+' withheld after a team challenge; '+', '.join(added)+
+    def describe(gid,frame):
+        if 'display_name' not in frame: return gid
+        row=frame[frame.tract_id.eq(gid)].iloc[0]
+        return f'{row.display_name} (tract {gid})'
+    return ('Working top 10 updated: '+', '.join(describe(g,before) for g in removed)+' withheld after a team challenge; '+', '.join(describe(g,after) for g in added)+
         ' entered. Public estimates and original scores are unchanged.')

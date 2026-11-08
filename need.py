@@ -9,8 +9,6 @@ import pandas as pd
 
 RESOURCES={
  'fl':('Second Harvest food finder','https://feedhopenow.org/find-help/food-finder/'),
- 'nyc':('NYC Food Help','https://finder.nyc.gov/foodhelp/locations?mView=map'),
- 'slc':('211 Utah','https://portal.forwardplatform.com/screener/211-utah/browse'),
 }
 
 

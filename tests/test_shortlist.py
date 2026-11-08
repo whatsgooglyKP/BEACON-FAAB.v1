@@ -6,7 +6,7 @@ import pytest
 def test_quick_checks_have_actual_membership_change_witnesses_in_all_regions():
     from clean import run
     from shortlist import quick_checks,priority_ids
-    for region in ('fl','nyc','slc'):
+    for region in ('fl',):
         b,_=run(region);checks=quick_checks(b.table)
         assert 0<len(checks)<=8
         base=priority_ids(b.table)
@@ -65,7 +65,7 @@ def test_quick_order_matches_full_rank_engine_and_counts_are_bounded():
     from clean import run
     from need import rank
     from shortlist import priority_ids,quick_checks
-    expected={'fl':8,'nyc':5,'slc':8}
+    expected={'fl':8}
     for region,count in expected.items():
         b,_=run(region)
         assert priority_ids(b.table)==rank(b.table).nsmallest(10,'model_rank').tract_id.tolist()

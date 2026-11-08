@@ -15,3 +15,6 @@ data/svi.csv
 # Local review databases, exports, and runtime artifacts
 data/review/
 .pytest_cache/
+
+# Public boundary source downloads: keep only the small derived name lookup
+data/geography/raw/

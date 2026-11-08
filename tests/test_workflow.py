@@ -102,7 +102,7 @@ def test_relevant_transport_uncertainty_and_unresolved_source_conflict_reduce_co
     from review_store import ReviewStore
     from need import rank
     from test_evidence import fixture
-    t=fixture();t['community_id']='nyc';t['transport_lack_pct']=range(40)
+    t=fixture();t['community_id']='synthetic_context_fixture';t['transport_lack_pct']=range(40)
     t['transport_ci_low']=1.;t['transport_ci_high']=50.
     assert rank(t.assign(review_complete=True)).iloc[-1].confidence=='Low'
     p=dict(proposal_id='p',tract_id=t.iloc[-1].tract_id,field='poverty_pct',before=39.,after=30.,rule_id='R15',kind='value_change',affects_ranking=True)

@@ -1,0 +1,2 @@
+# Builder only; the runtime app reads the small committed lookup without GIS dependencies.
+geopandas==1.2.0

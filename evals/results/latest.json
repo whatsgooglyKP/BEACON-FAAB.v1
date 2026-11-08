@@ -1,9 +1,9 @@
 {
-  "timestamp": "2026-11-07T20:05:36-05:00",
+  "timestamp": "2026-11-07T20:28:42-05:00",
   "timezone": "America/New_York (ET)",
-  "seconds": 211.1,
+  "seconds": 119.6,
   "summary": {
-    "PASS": 8,
+    "PASS": 9,
     "FAIL": 0,
     "SKIP": 1
   },
@@ -12,25 +12,25 @@
       "id": 1,
       "name": "Rules / schema acceptance",
       "status": "PASS",
-      "detail": "38 passed in 82.04s (0:01:22)"
+      "detail": "44 passed in 69.21s (0:01:09)"
     },
     {
       "id": 2,
       "name": "Real-data integrity / coverage",
       "status": "PASS",
-      "detail": "fl: 490 retained; nyc: 2327 retained; slc: 268 retained; source byte hashes unchanged; union preserved; no duplicate joins"
+      "detail": "fl: 490 retained; source byte hashes unchanged; union preserved; no duplicate joins"
     },
     {
       "id": 3,
       "name": "Independent source checks",
       "status": "PASS",
-      "detail": "fl: 18 stratified tracts; nyc: 17 stratified tracts; slc: 18 stratified tracts; 2,992 paired poverty cells identical (same upstream ACS); seeded disagreement detected"
+      "detail": "fl: 18 stratified tracts; 488 paired poverty cells identical (same upstream ACS); seeded disagreement detected"
     },
     {
       "id": 4,
       "name": "Rank / confidence / sensitivity",
       "status": "PASS",
-      "detail": "10 independent midrank checks; deterministic; FL missing transport never zero. Top-10 overlap in 10 trials: 1% noise 10\u201310, MOE-aware 4\u20137. Definition-change flags among comparable records: {'fl': 76, 'nyc': 24, 'slc': 40}"
+      "detail": "10 independent midrank checks; deterministic; FL missing transport never zero. Top-10 overlap in 10 trials: 1% noise 10\u201310, MOE-aware 4\u20137. Definition-change flags among comparable records: {'fl': 76}"
     },
     {
       "id": "5b",
@@ -48,19 +48,25 @@
       "id": 6,
       "name": "Human review / audit",
       "status": "PASS",
-      "detail": "5 passed in 5.10s; full append history, both vote orders, stale save, restart, undo, explicit resolution/reopen, and export replay verified"
+      "detail": "5 passed in 4.94s; full append history, both vote orders, stale save, restart, undo, explicit resolution/reopen, and export replay verified"
     },
     {
       "id": 7,
       "name": "End-to-end / export replay",
       "status": "PASS",
-      "detail": "fl: 3 UI steps, 490 export rows; nyc: 3 UI steps, 2327 export rows; slc: 3 UI steps, 268 export rows; UI disagreement/resolution exercised; replayed views exactly match; no dispatch or inventory upload"
+      "detail": "fl: 3 UI steps, 490 export rows; UI disagreement/resolution exercised; replayed views exactly match; no dispatch or inventory upload"
     },
     {
       "id": 8,
       "name": "Answer-first / sensitive quick checks",
       "status": "PASS",
-      "detail": "Pristine quick checks {'fl': 8, 'nyc': 5, 'slc': 8}; all have real \u00b190% poverty-MOE membership witnesses; capped at 8, not refilled; actual UI challenge replaces a candidate without changing source estimates; stale targets are rejected. 2 passed in 12.68s"
+      "detail": "Pristine quick checks {'fl': 8}; all have real \u00b190% poverty-MOE membership witnesses; capped at 8, not refilled; actual UI challenge replaces a candidate without changing source estimates; stale targets are rejected. 2 passed in 12.35s"
+    },
+    {
+      "id": 9,
+      "name": "Florida place labels / scope",
+      "status": "PASS",
+      "detail": "Central Florida only: 490/490 non-empty labels; 307 incorporated-place/CDP point labels, 183 unincorporated labels; 1 TIGER tract-point fallback; 5 independent official Census query checks; source scores unchanged"
     }
   ]
 }

@@ -5,7 +5,7 @@ import re
 import pandas as pd
 
 HEADERS={
- 'priority':'Order','why_line':'Why it is on this list','tract_id':'Neighborhood (census tract)','county':'County','score':'Priority score','model_rank':'Priority rank',
+ 'display_name':'Place name','priority':'Order','why_line':'Why it is on this list','tract_id':'Neighborhood (census tract)','county':'County','score':'Priority score','model_rank':'Priority rank',
  'poverty_pct':'% in poverty','low_access_population_pct_half10':'% of people far from a grocery store',
  'snap_pct':'% of households receiving SNAP','transport_lack_pct':'% of adults lacking reliable transportation',
  'review_status':'Review status','confidence':'Evidence confidence','review_tier':'Review needed','gap_type':'Food-access pattern',
@@ -69,7 +69,15 @@ def status_label(value):
 
 def friendly_table(frame,columns=None):
     """Copy a safe subset, translate labels/statuses, and round display numbers only."""
-    columns=[c for c in (columns or frame.columns) if c in HEADERS and c in frame]
+    if 'tract_id' in frame and 'display_name' not in frame:
+        from place_names import read_lookup
+        frame=frame.copy()
+        frame['display_name']=frame.tract_id.map(read_lookup().set_index('tract_id').display_name).fillna('Place label unavailable')
+        frame.loc[frame.tract_id.fillna('').eq(''),'display_name']='Central Florida (regional notice)'
+    columns=list(columns) if columns is not None else list(frame.columns)
+    if 'tract_id' in columns and 'display_name' in frame:
+        columns=[c for c in columns if c!='display_name'];columns.insert(columns.index('tract_id'),'display_name')
+    columns=[c for c in columns if c in HEADERS and c in frame]
     out=frame[columns].copy()
     for c in out:
         if c in ('before','after','value_raw','value'):

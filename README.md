@@ -33,7 +33,7 @@ No address-level retailer join, private upload, financial-challenge file, or inv
 
 The default landing view is the explained top ten and map. Open **Advanced / full review** to use the complete workflow below.
 
-1. **Load:** choose Central Florida (Lake, Orange, Osceola, Seminole), NYC (five boroughs), or Salt Lake + Tooele. See units, periods, coverage, raw hashes and the exact definition before proceeding.
+1. **Load:** Central Florida only (Lake, Orange, Osceola and Seminole counties); there is no region selector. See units, periods, coverage, raw hashes and the exact definition before proceeding.
 2. **Review:** safe formatting and documented missing-code handling are automatic and logged. Everything uncertain stays visible with a reason, action confidence, original cell/year/universe, and Accept/Reject. Source-backed numeric Edit is available on actual value/exclusion proposals; interpretation edits belong in tract notes, not fabricated statistics. Every human decision needs a display name and reason.
 3. **Use:** the dashboard remains: explained rank, evidence-quality label, simple point map, and resource-finder links. **Only fully reviewed tracts appear by default in this advanced dashboard** (not the explicitly unreviewed landing preview). A separate, explicitly unreviewed preview keeps uncertain neighborhoods visible. The score never claims an operational action is approved.
 
@@ -46,7 +46,7 @@ Add tract notes; confirm/challenge an inferred need; approve/reject/replace a pr
 ## Evidence, not overclaiming
 
 - **Appendix B LILA:** low-income **AND** low-access, **½ mile urban / 10 miles rural, driving**. Straight-line and 1-mile alternatives are separate sensitivity measures.
-- Source flags: **157/490 FL**, **37/2,324 USDA NYC** (2,327 IDs retained in the union), **48/268 Salt Lake + Tooele**. These are not confirmed high-need totals.
+- Source flags: **157/490 Central Florida tracts**. These are not confirmed high-need totals.
 - Among FL's 157 flagged tracts, **129 poverty/SNAP estimates** have CV >30% (76 poverty, 53 SNAP), across **97 distinct tracts**. These are estimates, not 129 neighborhoods. One additional zero SNAP estimate with positive MOE has undefined CV and is separately cautioned. See [verified counts](PROBLEM_STAT_COUNTS.json).
 - ACS figures are **2020–24**. USDA poverty shares that upstream ACS source: agreement is not independent corroboration. Population allocation is **2020**, retailers **June 2025**, USDA initial release **July 2026**. PLACES is a **2025 release with unverified observation years**.
 - Transportation and supplied food-insecurity estimates are unavailable for Central Florida; missing is not zero. No car/housing-unit count is substituted for modeled adult transportation.
@@ -59,7 +59,7 @@ Add tract notes; confirm/challenge an inferred need; approve/reject/replace a pr
 
 ```bash
 .venv/bin/python -m pytest -q tests
-.venv/bin/python -m evals.run                 # eight mandatory suites; live Gemini separately
+.venv/bin/python -m evals.run                 # nine mandatory suites; live Gemini separately
 .venv/bin/python -m evals.run --skip-gemini   # explicitly offline
 .venv/bin/python -m evals.run --only 5        # report/fallback and optional model
 ```
@@ -86,8 +86,22 @@ Tables use friendly indicator names, readable review statuses, and one-decimal p
 
 Each community opens on ten automatically cleaned priority neighborhoods, a one-line reason and evidence-confidence label for each, and the map. The banner explicitly says the list is **automatically cleaned, not yet checked by your team**. This is a starting answer—not confirmed need or an approved service plan. Local source preparation is automatic; there is no manual cleaning step or model dependency.
 
-**Quick checks** surface at most eight current top-ten neighborhoods whose membership actually changes when poverty alone is varied within its published 90% margin of error and the regional score is recomputed. Pristine counts: **Central Florida 8 · NYC 5 · Salt Lake/Tooele 8**. These are a small starting set, not all possible uncertainties; other contenders, joint changes and access uncertainty remain advanced. Checks are not continually replenished after a decision.
+**Quick checks** surface at most eight current top-ten neighborhoods whose membership actually changes when poverty alone is varied within its published 90% margin of error and the regional score is recomputed. Pristine counts: **Central Florida 8**. These are a small starting set, not all possible uncertainties; other contenders, joint changes and access uncertainty remain advanced. Checks are not continually replenished after a decision.
 
 Accept keeps a candidate **with its uncertainty**, without imputing an endpoint or claiming a correction. Challenge sets it aside from the team's working top ten, brings in the next source-ranked candidate, and shows who left/entered. Both are audited team choices; original observations and analytical ranks stay unchanged. Team disagreements remain visible and lower confidence rather than silently removing records. A quick answer does not complete the full evidence review.
 
 Open **Advanced / full review** for the original Load → Review → Use workspace: all 18 rules, source coverage, notes, disagreements, audit log, reviewed-only dashboard and replayable export. No functionality was removed. The landing preview and reviewed-only dashboard are deliberately different views.
+
+## Approximate place names (Central Florida only)
+
+Every retained tract has a committed offline label in [`data/clean/tract_place_names.csv`](data/clean/tract_place_names.csv): **490 total; 307 inside a Census incorporated place or CDP, 183 labeled “Unincorporated <County> County.”** The supplied map point is used for 489 tracts; the one missing point uses the matching TIGER tract internal point for naming only, without altering the supplied map coordinates.
+
+Source: [Census TIGER/Line 2024 Florida places](https://www2.census.gov/geo/tiger/TIGER2024/PLACE/tl_2024_12_place.zip) and [2024 Florida tracts](https://www2.census.gov/geo/tiger/TIGER2024/TRACT/tl_2024_12_tract.zip), January 1, 2024 boundary vintage. The reproducible builder uses point containment, never nearest-city guessing or a majority-area claim. The two raw archives are gitignored; the small CSV and [source hashes](data/clean/tract_place_names.sources.json) are committed. [Five independent official Census query checks](data/clean/place_name_checks.json) verify Orlando, Alafaya, Poinciana, Pine Hills and an unincorporated point.
+
+```bash
+.venv/bin/pip install -r requirements-geography.txt  # builder only, not needed by the app
+.venv/bin/python scripts/build_place_names.py
+.venv/bin/python scripts/build_place_names.py --verify
+```
+
+**Place names are approximate labels from Census boundaries; a tract can span more than one area.** A city/CDP label means the selected point is inside that polygon—not that the whole tract, all residents or a service area belongs to it. Tract GEOIDs remain alongside names throughout the UI and exports. Names do not affect ranking, confidence or review decisions.

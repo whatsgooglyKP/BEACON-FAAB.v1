@@ -133,7 +133,8 @@ def answer_question(question,bundle,proposals,tract=None,use_gemini=False,client
     elif any(w in q for w in ('missing','limitation','transport','year','fresh')):
         text=evidence_report(bundle,proposals).split('\n\n')[-1]+'\n\nAccess uses the 2020 population base, June 2025 retailers, and ACS 2020–24. Conditions may have changed; PLACES observation years are unverified. Missing information is not zero.'
     elif tract is not None and any(w in q for w in ('why','rank','flag','confidence','need','tract')):
-        text=str(tract['why'])+'\n\n'+str(tract['limitations'])+'\n\nReview tier: '+str(tract['review_tier'])+'. Confirm or challenge this inference in the recommendation controls; do not rewrite official statistics using local knowledge.'
+        from place_names import label
+        text=label(tract['tract_id'],{tract['tract_id']:tract.get('display_name','Place label unavailable')})+'\n\n'+str(tract['why'])+'\n\n'+str(tract['limitations'])+'\n\nReview tier: '+str(tract['review_tier'])+'. Confirm or challenge this inference in the recommendation controls; do not rewrite official statistics using local knowledge.'
     else:
         text='I can explain the loaded sources, missing information, selected tract reasoning, or public resource finders. I cannot establish live shortages, surplus, benefit eligibility, or current pantry stock.\n\n'+evidence_report(bundle,proposals)
     text=readable_text(text)

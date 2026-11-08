@@ -98,7 +98,7 @@ def test_ranking_is_midrank_review_gated_not_a_prediction():
 
 def test_transport_and_blind_spot_are_explained():
     from need import rank
-    t=fixture(); t['community_id']='nyc'; t['transport_lack_pct']=np.arange(40,dtype=float)
+    t=fixture(); t['community_id']='synthetic_context_fixture'; t['transport_lack_pct']=np.arange(40,dtype=float)
     out=rank(t.assign(review_complete=True))
     assert 'Transport-compounded' in out.iloc[-1].gap_type
     assert out.iloc[24].gap_type == 'Possible blind spot'
@@ -144,7 +144,7 @@ def test_review_order_and_undo(tmp_path):
 
 def test_real_regions_and_counts():
     from indicators import load_community
-    for region, n, flags in [('fl',490,157),('nyc',2327,37),('slc',268,48)]:
+    for region, n, flags in [('fl',490,157)]:
         b=load_community(region)
         assert len(b.table)==n and b.table.tract_id.nunique()==n
         assert b.table.lila_half10_driving.sum()==flags
@@ -157,8 +157,6 @@ def test_real_regions_and_counts():
             f=b.table[b.table.lila_half10_driving.eq(1)]
             cv=sum(((f[m]/1.645/f[e].abs()>.30)&f[e].gt(0)).sum() for e,m in [('poverty_pct','poverty_moe90'),('snap_pct','snap_moe90')])
             assert cv==129
-        if region=='nyc':
-            assert set(['36047990100','36081990100','36085990100']).issubset(set(b.table.tract_id))
 
 
 def test_known_coverage_reasons_live_in_observations_not_only_ui():
@@ -166,10 +164,6 @@ def test_known_coverage_reasons_live_in_observations_not_only_ui():
     b=load_community('fl')
     obs=b.observations[b.observations.indicator_id.eq('transport_lack_pct')]
     assert obs.missing_reason.eq('not_available_for_region').all()
-    ny=load_community('nyc').table
-    r=ny[ny.tract_id.eq('36047990100')].iloc[0]
-    assert r.lila_half10_driving_missing_reason=='source_row_absent'
-    assert r.low_access_population_pct_half10_missing_reason=='source_row_absent'
 
 
 def test_zero_base_ratio_is_blocked_and_invalid_domain_is_not_a_distribution_outlier():
@@ -197,7 +191,7 @@ def test_resolution_only_reopens_for_a_new_conflicting_vote(tmp_path):
 
 def test_unrelated_national_source_ids_do_not_block_selected_community():
     from clean import run
-    for region in ('fl','nyc','slc'):
+    for region in ('fl',):
         b,q=run(region)
         assert not b.manifest['quarantined'], 'Out-of-region national IDs must be scoped before quarantine'
         assert q[(q.rule_id=='R02')&(~q.auto_applied)].empty

@@ -1,12 +1,13 @@
 {
-  "recorded_at": "2026-11-07T20:04:15-05:00",
+  "recorded_at": "2026-11-07T20:30:19-05:00",
   "timezone": "America/New_York (ET)",
   "command": ".venv/bin/python -m pytest -q --durations=3",
   "result": "PASS",
-  "passed": 38,
+  "passed": 44,
   "failed": 0,
-  "elapsed_seconds": 82.46,
+  "elapsed_seconds": 69.22,
   "hung_model_test_seconds": 19.5,
   "hard_ai_cap_seconds": 20,
-  "evidence": "38 passed in 82.46s; actual hung-client cap test completed in 19.50s; model requests are optional and never awaited by the UI."
+  "scope": "Central Florida only",
+  "evidence": "44 passed in 69.22s; full coverage and source-pinned names, analytical invariance, exact export replay, primary labels, and existing responsiveness/stale-review checks."
 }

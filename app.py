@@ -16,6 +16,7 @@ from review_store import ReviewStore, StaleVersion
 from need import rank, operational_view
 from exports import export_bundle
 from shortlist import quick_checks, working_shortlist, shortlist_change
+from place_names import label as place_label, FL_LIMITATION, LOOKUP
 from report import evidence_report, answer_question, start_generation, AI_UNAVAILABLE_NOTE
 from presentation import friendly_table, field_label, status_label, readable_text, short_reason, HEADERS
 
@@ -25,7 +26,7 @@ st.markdown('<style>'+Path('assets/beacon.css').read_text()+'</style>',unsafe_al
 
 # ## Load once per community; a new source hash creates a new review run.
 @st.cache_data(show_spinner='Reading public sources and checking their provenance…')
-def load(region):
+def load(region,place_lookup_hash):
     """Cache immutable data only; decisions are always read freshly from SQLite."""
     return run(region)
 
@@ -73,7 +74,9 @@ if os.getenv('BEACON_DEMO_MODE')=='1':
     st.info('Demonstration workspace: real public source data with explicitly simulated reviewer decisions. This is not practitioner validation.')
 with st.sidebar:
     st.subheader('Your workspace')
-    region=st.selectbox('Community',list(REGIONS),format_func=lambda r:REGIONS[r]['name'],key='region')
+    region='fl'
+    st.markdown('**Central Florida**')
+    st.caption('Lake · Orange · Osceola · Seminole')
     reviewer=st.text_input('Reviewer display name',key='reviewer',placeholder='Your name')
     st.caption('Prototype names are not verified accounts. Reviewers share this local workspace one at a time.')
     st.divider()
@@ -87,7 +90,12 @@ home='Top 10 · Start here'
 with st.expander('Advanced / full review'):
     st.radio('Workspace',[home]+steps,horizontal=True,key='step',label_visibility='collapsed')
     st.caption('All 18 checks, full source coverage, notes, disagreements, audit trail and exports remain here.')
-bundle,proposals=load(region);rid=bundle.manifest['run_id']
+bundle,proposals=load(region,hashlib.sha256(LOOKUP.read_bytes()).hexdigest());rid=bundle.manifest['run_id']
+place_labels=bundle.table.set_index('tract_id').display_name.to_dict()
+def location(gid):
+    """Keep the human label primary and the exact tract GEOID alongside."""
+    return place_label(gid,place_labels)
+st.caption(FL_LIMITATION)
 store=ReviewStore(os.getenv('BEACON_REVIEW_DB','data/review/evidence.sqlite3'))
 registered=f'registered-{store.path}-{rid}'
 if registered not in st.session_state:
@@ -110,13 +118,13 @@ if st.session_state.step==home:
     change_key='shortlist-change-'+rid
     if st.session_state.get(change_key): st.success(st.session_state[change_key])
     if ranked.need_feedback.eq('Disputed').any(): st.warning('Your team disagrees on a shortlist choice. Disputed candidates stay visible with Low confidence; see Advanced / full review.')
-    show_table(current,['priority','tract_id','county','why_line','confidence'])
+    show_table(current,['priority','tract_id','why_line','confidence'])
     mapped=current.dropna(subset=['lat','lon'])
     if not mapped.empty:
-        fig=px.scatter_map(mapped,lat='lat',lon='lon',hover_name='tract_id',color='confidence',
-            hover_data={'county':True,'why_line':True,'lat':False,'lon':False},labels=HEADERS,
+        fig=px.scatter_map(mapped,lat='lat',lon='lon',hover_name='display_name',color='confidence',
+            hover_data={'tract_id':True,'county':True,'why_line':True,'lat':False,'lon':False},labels=HEADERS,
             color_discrete_map={'Low':'#F79122','Medium':'#6B8FA8','High':'#388D58'},
-            center={'lat':float(mapped.lat.mean()),'lon':float(mapped.lon.mean())},zoom=8 if region!='nyc' else 9,
+            center={'lat':float(mapped.lat.mean()),'lon':float(mapped.lon.mean())},zoom=8,
             height=310,map_style='open-street-map')
         fig.update_layout(margin=dict(l=0,r=0,t=0,b=0));st.plotly_chart(fig,width='stretch')
     st.caption(f'{len(mapped)} of {len(current)} neighborhoods have supplied map points. Points are neighborhood references, not facilities or service areas.')
@@ -133,11 +141,11 @@ if st.session_state.step==home:
     st.write(f'{len(remaining)} quick checks could change this list.')
     st.caption('Only top-10 membership changes within the published poverty margin of error appear here. These are scenarios, not corrected measurements. Keep with caution, or challenge a candidate for follow-up.')
     if not remaining.empty:
-        choice=st.selectbox('Choose a quick check',remaining.tract_id.tolist(),key='quick-'+rid)
+        choice=st.selectbox('Choose a quick check',remaining.tract_id.tolist(),key='quick-'+rid,format_func=location)
         check=remaining[remaining.tract_id.eq(choice)].iloc[0]
         r=ranked[ranked.tract_id.eq(choice)].iloc[0]
         with st.container(border=True):
-            st.markdown(f'**{choice} · {r.county}** · **Confidence: {r.confidence}**')
+            st.markdown(f'**{location(choice)}** · **Confidence: {r.confidence}**')
             st.write(check.reason)
             st.write(f'The poverty estimate is {r.poverty_pct:.1f}%; its published 90% margin-of-error range is {check.lower:.1f}%–{check.upper:.1f}%.')
             with st.form('quick-check-'+rid):
@@ -169,7 +177,7 @@ if st.session_state.step==home:
 # ## LOAD: show coverage before proposing any changes.
 elif st.session_state.step==steps[0]:
     st.header('Step 1 · Load your community’s public evidence')
-    st.write('One common field mapping, three communities. Nothing here is a live count of hunger or pantry stock.')
+    st.write('Central Florida public evidence. Nothing here is a live count of hunger or pantry stock.')
     c1,c2,c3=st.columns(3)
     c1.metric('Neighborhoods retained',f'{len(bundle.table):,}')
     c2.metric('Low income + low grocery access',f'{int(bundle.table.lila_half10_driving.eq(1).sum()):,}')
@@ -207,7 +215,7 @@ elif st.session_state.step==steps[1]:
         st.write(f'{int(analytical.sum())} proposed value changes; {int((analytical & accepted).sum())} accepted proposals; {int(queue.rule_id.eq("R12").sum())} regional coverage notices. Some formatting records cover a whole file.')
     filters=st.columns([1,2])
     scope=filters[0].selectbox('Queue view',['Needs a decision','Disagreements','All review records'])
-    tract_filter=filters[1].selectbox('Filter neighborhood',['All neighborhoods','Regional notices']+bundle.table.tract_id.tolist(),key=f'filter-{region}')
+    tract_filter=filters[1].selectbox('Filter neighborhood',['All neighborhoods','Regional notices']+bundle.table.tract_id.tolist(),key=f'filter-{region}',format_func=lambda gid:gid if gid in ('All neighborhoods','Regional notices') else location(gid))
     q=queue.copy()
     if scope=='Needs a decision': q=q[q.review_status.eq('pending') & ~q.auto_applied]
     elif scope=='Disagreements': q=q[q.review_status.eq('disputed')]
@@ -218,10 +226,10 @@ elif st.session_state.step==steps[1]:
     else:
         options=q.proposal_id.tolist()
         byid=q.set_index('proposal_id')
-        selected=st.selectbox('Choose a review card',options,format_func=lambda p:f"{byid.loc[p,'rule_id']} · {byid.loc[p,'rule_name']} · {byid.loc[p,'tract_id'] or 'Regional notice'} · {field_label(byid.loc[p,'field'])}",key=f'card-{region}-{scope}-{tract_filter}')
+        selected=st.selectbox('Choose a review card',options,format_func=lambda p:f"{location(byid.loc[p,'tract_id'])} · {byid.loc[p,'rule_id']} · {byid.loc[p,'rule_name']} · {field_label(byid.loc[p,'field'])}",key=f'card-{region}-{scope}-{tract_filter}')
         p=byid.loc[selected];state=states.get(selected,dict(status='pending',version=0,votes=[]))
         with st.container(border=True):
-            st.subheader(p.rule_name+' · '+(p.tract_id or REGIONS[region]['name']))
+            st.subheader(location(p.tract_id)+' · '+p.rule_name)
             st.markdown(f'**Check confidence: {p.confidence}** · {p.severity} · **Review status: {status_label(state["status"])}**')
             st.write(short_reason(p))
             a,b=st.columns(2)
@@ -263,7 +271,7 @@ elif st.session_state.step==steps[1]:
             if p.kind not in ('value_change','exclude'): st.caption('Edit the interpretation with a tract note below; contextual knowledge must not rewrite official statistics.')
     with st.expander('Add a neighborhood note or flag'):
         with st.form('tract-note'):
-            note_gid=st.selectbox('Neighborhood',bundle.table.tract_id.tolist())
+            note_gid=st.selectbox('Neighborhood',bundle.table.tract_id.tolist(),format_func=location)
             tract_note=st.text_area('Local context / question')
             note_link=st.text_input('Supporting public link (optional)')
             saved=st.form_submit_button('Save tract note')
@@ -273,7 +281,9 @@ elif st.session_state.step==steps[1]:
         if store.notes(rid): show_table(pd.DataFrame(store.notes(rid)))
     with st.expander('Full append-only audit log (ET)'):
         ev=store.events(rid)
-        if ev: show_table(pd.DataFrame(ev),['reviewer','action','note','before','after','created_at'])
+        if ev:
+            events=pd.DataFrame(ev).assign(tract_id=[e['proposal'].get('tract_id','') for e in ev])
+            show_table(events,['tract_id','reviewer','action','note','before','after','created_at'])
         else: st.caption('No decisions have been saved yet.')
     st.button('Open the explained dashboard →',type='primary',on_click=go,args=(steps[2],))
 
@@ -303,16 +313,16 @@ else:
         if not mapped.empty:
             # Plotly's map center defaults to (0,0); center on supplied points
             # so the selected community, not an empty ocean, is in view.
-            fig=px.scatter_map(mapped,lat='lat',lon='lon',color='score',hover_name='tract_id',hover_data={'county':True,'confidence':True,'gap_type':True,'score':':.1f'},labels=HEADERS,color_continuous_scale=['#6B8FA8','#F79122'],center={'lat':float(mapped.lat.mean()),'lon':float(mapped.lon.mean())},zoom=8 if region!='nyc' else 9,height=400,map_style='open-street-map')
+            fig=px.scatter_map(mapped,lat='lat',lon='lon',color='score',hover_name='display_name',hover_data={'tract_id':True,'county':True,'confidence':True,'gap_type':True,'score':':.1f'},labels=HEADERS,color_continuous_scale=['#6B8FA8','#F79122'],center={'lat':float(mapped.lat.mean()),'lon':float(mapped.lon.mean())},zoom=8,height=400,map_style='open-street-map')
             fig.update_layout(margin=dict(l=0,r=0,t=0,b=0));st.plotly_chart(fig,width='stretch')
     st.subheader('Why this neighborhood?')
     inspector=visible if not visible.empty else ranked
     if visible.empty: st.caption('Unreviewed evidence inspector only: these records are not in the usable shortlist.')
     picks=inspector.sort_values(['model_rank','tract_id'],na_position='last').tract_id.tolist()
-    gid=st.selectbox('Inspect a neighborhood',picks,key=f'inspect-{region}')
+    gid=st.selectbox('Inspect a neighborhood',picks,key=f'inspect-{region}',format_func=location)
     r=ranked[ranked.tract_id.eq(gid)].iloc[0]
     with st.container(border=True):
-        st.markdown(f'**{gid} · {r.county}** · {r.gap_type} · **Confidence: {r.confidence}**')
+        st.markdown(f'**{location(gid)}** · {r.gap_type} · **Confidence: {r.confidence}**')
         if pd.notna(r.poverty_pct) and pd.notna(r.low_access_population_pct_half10):
             st.write(f'{r.poverty_pct:.1f}% in poverty among people with reported poverty status (ACS 2020–24). {r.low_access_population_pct_half10:.1f}% of people are far from a grocery store, using the 2020 population base and June 2025 store locations.')
         else: st.write('A required measure is missing or invalid, so this neighborhood is not scored. Missing does not mean zero.')
