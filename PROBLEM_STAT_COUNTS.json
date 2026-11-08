@@ -1,0 +1,44 @@
+[
+  {
+    "community": "Central Florida",
+    "definition": "DD_SRAM_LILATracts_halfAnd10",
+    "usda_tracts": 490,
+    "lila_flagged_tracts": 157,
+    "poverty_cv_gt30_estimates": 76,
+    "poverty_numeric_estimates": 157,
+    "poverty_zero_estimates_positive_moe": 0,
+    "SNAP_cv_gt30_estimates": 53,
+    "SNAP_numeric_estimates": 157,
+    "SNAP_zero_estimates_positive_moe": 1,
+    "total_poverty_snap_cv_gt30_estimates": 129,
+    "distinct_flagged_tracts_with_cv_gt30": 97
+  },
+  {
+    "community": "NYC",
+    "definition": "DD_SRAM_LILATracts_halfAnd10",
+    "usda_tracts": 2324,
+    "lila_flagged_tracts": 37,
+    "poverty_cv_gt30_estimates": 26,
+    "poverty_numeric_estimates": 37,
+    "poverty_zero_estimates_positive_moe": 0,
+    "SNAP_cv_gt30_estimates": 15,
+    "SNAP_numeric_estimates": 31,
+    "SNAP_zero_estimates_positive_moe": 2,
+    "total_poverty_snap_cv_gt30_estimates": 41,
+    "distinct_flagged_tracts_with_cv_gt30": 27
+  },
+  {
+    "community": "Salt Lake City sample (Salt Lake + Tooele)",
+    "definition": "DD_SRAM_LILATracts_halfAnd10",
+    "usda_tracts": 268,
+    "lila_flagged_tracts": 48,
+    "poverty_cv_gt30_estimates": 35,
+    "poverty_numeric_estimates": 48,
+    "poverty_zero_estimates_positive_moe": 0,
+    "SNAP_cv_gt30_estimates": 36,
+    "SNAP_numeric_estimates": 48,
+    "SNAP_zero_estimates_positive_moe": 1,
+    "total_poverty_snap_cv_gt30_estimates": 71,
+    "distinct_flagged_tracts_with_cv_gt30": 45
+  }
+]

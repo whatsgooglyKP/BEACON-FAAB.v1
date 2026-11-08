@@ -11,3 +11,7 @@ __pycache__/
 *.pyc
 data/svi.csv
 .streamlit/secrets.toml
+
+# Local review databases, exports, and runtime artifacts
+data/review/
+.pytest_cache/
