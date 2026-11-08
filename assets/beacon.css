@@ -1,0 +1,54 @@
+/* Beacon Brand & Design System v1.0 (April 2026).
+   No logo is reproduced. Plain Beacon text avoids changing licensed artwork.
+   Avenir is not bundled/licensed here; Arial/sans-serif is the declared fallback. */
+:root {
+  --beacon-primary-900: #1E343F;
+  --beacon-primary-700: #385981;
+  --beacon-primary-500: #6B8FA8;
+  --beacon-orange: #F79122;
+  --beacon-orange-light: #FDCB9C;
+  --beacon-error: #C44A4A;
+  --beacon-success: #388D58;
+  --beacon-info: #4A7CD0;
+}
+.stApp, .stApp p, .stApp label, .stApp input, .stApp textarea {
+  font-family: 'Avenir Roman', Avenir, Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+}
+h1, h2, h3, [data-testid="stMetricValue"] {
+  font-family: 'Avenir Medium', Avenir, Arial, sans-serif;
+  color: var(--beacon-primary-900);
+}
+h1 { font-size: 48px; letter-spacing: -1.2px; }
+h2 { font-size: 32px; }
+h3 { font-size: 24px; }
+[data-testid="stCaptionContainer"] p {
+  font-size: 14px;
+  color: #465763;
+}
+code, pre, [data-testid="stCode"] {
+  font-family: Menlo, Monaco, 'Courier New', monospace;
+}
+[data-testid="stSidebar"] { border-right: 1px solid #DDE4E8; }
+[data-testid="stMainBlockContainer"] { max-width: 1400px; padding-top: 2rem; }
+[data-testid="stMetric"] {
+  background: #F4F6F8;
+  border: 1px solid #DDE4E8;
+  border-top: 3px solid var(--beacon-primary-500);
+  border-radius: 10px;
+  padding: 16px 20px;
+}
+[data-testid="stRadio"] > div { padding: 12px 16px; background: #F4F6F8; border-radius: 10px; }
+.stButton button[kind="primary"], .stFormSubmitButton button[kind="primary"] {
+  color: #1E343F;
+  background-color: #F79122;
+  border-color: #F79122;
+  font-weight: 700;
+}
+.stButton button[kind="primary"]:hover, .stFormSubmitButton button[kind="primary"]:hover {
+  color: #1E343F; background-color: #FDCB9C; border-color: #F79122;
+}
+a { color: #385981; }
+/* Semantic alerts retain Streamlit's text/icons; color never carries meaning alone. */
+[data-testid="stAlert"] { border-radius: 8px; }

@@ -17,6 +17,8 @@ from exports import export_bundle
 from report import evidence_report, make_report, answer_question
 
 st.set_page_config(page_title='Beacon · Evidence Review',page_icon='◉',layout='wide')
+# Brand CSS is static local content, never source data or user-supplied HTML.
+st.markdown('<style>'+Path('assets/beacon.css').read_text()+'</style>',unsafe_allow_html=True)
 
 # ## Load once per community; a new source hash creates a new review run.
 @st.cache_data(show_spinner='Reading public sources and checking their provenance…')
