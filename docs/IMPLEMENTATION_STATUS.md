@@ -11,8 +11,8 @@ This describes the local prototype, not production readiness. See the latest sco
 - Sequential two-reviewer disagreement, provisional/agreed states, explicit resolution and reopening for a new contrary vote. No last-writer-wins for data or operational recommendations.
 - Tract notes, confirm/challenge inferred need, approve/reject/replace actions and independent human operational position.
 - Beacon design tokens, readable typography/fallback, plain text brand treatment, no altered/reproduced logo, explicit unofficial-prototype attribution.
-- Bounded offline chat and opt-in Gemini paragraph ordering, 150-second timeout and semantic gate. Gemini never edits or infers data. Live availability is a separate eval result, not silently counted as a pass.
-- Architecture/README/major-code explanations, seven redesigned mandatory evaluation suites, separate optional-model result and screenshot automation using a disposable headless test browser.
+- Bounded offline chat and opt-in Gemini paragraph ordering, instant built-in text, explicit nonblocking AI buttons, a 20-second total cap with no retries and semantic gate. Gemini never edits or infers data. Live availability is a separate eval result, not silently counted as a pass.
+- Architecture/README/major-code explanations, eight redesigned mandatory evaluation suites, separate optional-model result and screenshot automation using a disposable headless test browser.
 
 ## Deliberately not implemented / not claimed
 
@@ -32,3 +32,12 @@ Current screenshots live under `screenshots/redesign/`. The screenshot server us
 ## Lessons / next
 
 **Made:** a reviewable evidence pipeline and a small explained action list, not another large unexplained dashboard. **Learned:** geography, definitions, missingness and shared upstream data matter more than a “problems fixed” counter; statistical sensitivity can substantially change a top-ten list. **Next:** practitioner threshold/usability calibration, fresher public evidence, verified resource catalogs, authenticated collaboration, and independent security/code review before production use.
+
+- Answer-first default with ten explained candidates and map, explicitly not team-checked; bounded MOE-sensitive quick checks (FL 8 / NYC 5 / Salt Lake–Tooele 8), audited team choices and real entry/exit summaries. All former workflow views remain under Advanced / full review.
+
+## Verified follow-up result
+
+- `pytest`: **38 passed**, including a real hung-client wall-clock test at **19.50 seconds**, default offline rendering, optional-button responsiveness, and stale quick-form rejection. [Recorded pytest result](../evals/results/pytest_latest.json).
+- Full offline scorecard: **8 PASS / 0 FAIL / 1 optional live Gemini SKIP**. [Actual suite results](../evals/results/latest.md); no live-model success is claimed.
+- Thirteen refreshed screenshots cover landing top ten/map, quick checks, after-decision changes, advanced navigation, all three original steps, disagreement, built-in summary and built-in chat. Real source data and simulated reviewer choices are explicitly labeled.
+- No deployment; original sources and `app_v0_dashboard.py` remain unchanged.

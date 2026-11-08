@@ -21,7 +21,8 @@ The command exits nonzero if any mandatory suite or attempted semantic model che
 | 5. Offline report faithfulness | Source-appropriate counts, units, universes and years; exact fallback under simulated timeout; same-number/wrong-unit, wrong-year and invented-stock attacks rejected. |
 | 5b. Optional live Gemini | Separate PASS/FAIL/SKIP, with actual attempt count. No key, explicit skip, timeout or server/model unavailability is **not a pass**. A returned response that fails the semantic gate is a model FAIL even though a usable offline fallback is retained. |
 | 6. Human review/audit | Accept/Reject/source-backed Edit/Undo; required names/reasons/citations; source/domain validation; both conflict save orders; no last-writer-wins; stale saves; persisted restart; explicit resolution/reopening; notes, human/model-order separation; exact export replay. |
-| 7. End-to-end/exports | Actual Streamlit Load/Review/Use in all three communities using a temporary review database; no app exceptions; all export rows retained and full audit replay matches reviewed data. No inventory upload or dispatch step. |
+| 7. End-to-end/exports | Actual answer-first and advanced Streamlit Load/Review/Use in all three communities using a temporary review database; no app exceptions; all export rows retained and full audit replay matches reviewed data. No inventory upload or dispatch step. |
+| 8. Answer-first/quick checks | Small regional queues with real top-ten membership-change witnesses, exact score parity, audited Accept/Challenge behavior, real list changes, no made-up uncertainty corrections, and rejection of stale quick forms. |
 
 ## Interpreting the results
 
@@ -29,9 +30,17 @@ The command exits nonzero if any mandatory suite or attempted semantic model che
 - The 157/37/48 LILA values are source flags, not approved shortlist sizes. FL's 129 high-CV poverty/SNAP estimates are 76+53 **estimates** across 97 distinct flagged tracts, not 129 neighborhoods. Undefined zero-estimate CV is separate.
 - A missing/imprecise estimate is not a corrected number. Acknowledgment does not fix coverage or freshness. Three ACS-only NYC tracts remain visible even when unscored.
 - Simulated review identities are explicitly test/demo identities, not practitioner validation. SQLite tests use temporary databases; the app's real review decisions are not overwritten.
-- Live Gemini uses `gemini-3.8-flash` only when a key is present in the environment; 150-second timeout. The key is never printed, placed in fixtures, or exported. No model is needed for the deterministic pipeline.
+- Live Gemini uses `gemini-3.8-flash` only when a key is present in the environment; 20-second total cap including all work, with no retries. Built-in reports/chat render without a model request; optional UI jobs never block a rerun. The key is never printed, placed in fixtures, or exported. No model is needed for the deterministic pipeline. Responsiveness tests inject a client that ignores transport timeouts and verify elapsed time is ≤20 seconds, late results cannot replace the fallback, and default UI render makes no model call. SDK configuration and optional-button responsiveness are tested separately.
 - Exact approved paragraph matching is intentionally stricter than numeric matching: it prevents swapping correct numbers between the wrong geographies/units/years. The chat is bounded, not an unrestricted research assistant.
 
 ## Qualitative usability check (not yet performed)
 
 Ask Kevin to explain a flag, find its source/year, reject a proposal, recognize disagreement and explain one shortlisted tract, without coaching. Record completion/confusions. Do not claim validated user impact without this check. A separate human code review is also recommended before production use.
+
+## Follow-up acceptance checks
+
+`tests/test_responsive_ui.py` covers default-offline latency, nonblocking optional requests, a real 20-second hung-client bound, ignored late results, one-attempt SDK settings, friendly headers/statuses and view-only rounding, and report/chat buttons in the actual Streamlit UI. Suite 1 runs these tests; suite 5 additionally checks that the default never constructs a client and that a hung optional request returns the identical fallback within its deadline. Run `python -m evals.run --skip-gemini` to keep live-model availability explicitly SKIP rather than manufacture a pass.
+
+## Answer-first / quick-check gate (suite 8)
+
+The mandatory eighth suite verifies the pristine regional counts (FL 8, NYC 5, Salt Lake/Tooele 8), an eight-item ceiling, exact parity with the full score engine, and a recorded low/high uncertainty scenario that truly changes top-ten membership for every surfaced card. Zero-MOE and unrelated SNAP uncertainty must not create quick work. Real UI tests challenge a candidate, observe a replacement and a one-line change explanation, and verify the queue shrinks rather than replenishes. Accept tests require unchanged source values/scores and an honest unchanged-membership message. A stale form must never vote against a newly selected tract after another reviewer handles the displayed one. All source rows remain available in advanced review and exports.

@@ -1,0 +1,12 @@
+{
+  "recorded_at": "2026-11-07T20:04:15-05:00",
+  "timezone": "America/New_York (ET)",
+  "command": ".venv/bin/python -m pytest -q --durations=3",
+  "result": "PASS",
+  "passed": 38,
+  "failed": 0,
+  "elapsed_seconds": 82.46,
+  "hung_model_test_seconds": 19.5,
+  "hard_ai_cap_seconds": 20,
+  "evidence": "38 passed in 82.46s; actual hung-client cap test completed in 19.50s; model requests are optional and never awaited by the UI."
+}

@@ -10,9 +10,9 @@ from clean import run
 from review_store import ReviewStore
 
 
-def prepare():
+def prepare(path='data/review/demo.sqlite3'):
     """Seed one explained acknowledgment and one unresolved two-reviewer example."""
-    path='data/review/demo.sqlite3';s=ReviewStore(path)
+    s=ReviewStore(path)
     for region in ('fl','nyc','slc'):
         b,q=run(region);rid=b.manifest['run_id'];s.register(rid,q,b.manifest,b.observations,b.table)
         p=q[q.rule_id.eq('R14')].iloc[0]
@@ -24,7 +24,7 @@ def prepare():
             s.decide(rid,p.proposal_id,'Reject','Demo reviewer B','SIMULATED DEMO: request local review of definition sensitivity before acting.')
             s.add_note(rid,p.tract_id,'Demo reviewer B','SIMULATED DEMO note: ask a practitioner about this pattern. No source figure has been changed.')
         print(region,len(b.table),'real tracts; ready after simulated regional acknowledgment:',int(s.apply(rid,b.table).review_complete.sum()))
-    print('Demo only: BEACON_REVIEW_DB=data/review/demo.sqlite3 BEACON_DEMO_MODE=1 .venv/bin/streamlit run app.py --server.port 8510')
+    print(f'Demo only: BEACON_REVIEW_DB={path} BEACON_DEMO_MODE=1 .venv/bin/streamlit run app.py --server.port 8510')
 
 
 if __name__=='__main__': prepare()

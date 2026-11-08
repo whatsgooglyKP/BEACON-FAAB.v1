@@ -28,7 +28,7 @@ from need import rank,operational_view
 from quality_rules import detect
 from review_store import ReviewStore
 from exports import export_bundle,replay_export
-from report import evidence_report,make_report,validate_generated
+from report import evidence_report,make_report,validate_generated,start_generation,AI_TIMEOUT_SECONDS
 RESULTS=[]
 
 
@@ -158,8 +158,26 @@ def e5(skip=False,n=1):
         class models:
             @staticmethod
             def generate_content(**kwargs): raise TimeoutError('simulated outage')
-    txt,mode=make_report(b,q,client_factory=Down)
+    txt,mode=make_report(b,q,client_factory=Down,use_gemini=True)
     assert txt==base and mode.startswith('template')
+    def forbidden(): raise AssertionError('Default must not construct a model client')
+    started=time.monotonic()
+    assert make_report(b,q,client_factory=forbidden)==(base,'template')
+    assert time.monotonic()-started<.1 and AI_TIMEOUT_SECONDS==20
+    import threading
+    release=threading.Event()
+    class Hung:
+        class models:
+            @staticmethod
+            def generate_content(**kwargs):
+                release.wait(1)
+                raise TimeoutError()
+    try:
+        started=time.monotonic()
+        job=start_generation(base,client_factory=Hung,timeout_s=.1)
+        assert time.monotonic()-started<.05
+        assert job.wait()[0]==base and time.monotonic()-started<.2
+    finally: release.set()
     assert not validate_generated(base.replace('157 neighborhoods','157 households'),base)
     assert not validate_generated(base.replace('2020–24','2010–14'),base)
     assert not validate_generated(base+' There is surplus stock.',base)
@@ -174,7 +192,7 @@ def e5(skip=False,n=1):
         rejected=any('rejected' in mode for mode in modes)
         status='FAIL' if rejected else 'PASS' if ok else 'SKIP'
         record('5b','Optional live Gemini',status,f'{n} attempts; {ok} accepted by exact paragraph semantic gate; modes: {modes}')
-    return 'Template indicator/geography/unit/year checks pass; simulated timeout uses identical fallback; swapped units/years and invented stock rejected'
+    return 'Instant default without client; nonblocking optional job and bounded hung-client fallback; template indicator/geography/unit/year checks pass; swapped units/years and invented stock rejected'
 
 
 def e6():
@@ -216,6 +234,8 @@ def e7():
             assert not a.exception
             for region in REGIONS:
                 a.selectbox(key='region').select(region).run()
+                a.radio(key='step').set_value('Top 10 · Start here').run()
+                assert not a.exception and any('Your top 10' in h.value for h in a.header)
                 for step in ['1 · Load','2 · Review','3 · Use']:
                     a.radio(key='step').set_value(step).run()
                     assert not a.exception,f'{region} {step}: {a.exception}'
@@ -234,10 +254,26 @@ def e7():
     return '; '.join(details)+'; UI disagreement/resolution exercised; replayed views exactly match; no dispatch or inventory upload'
 
 
+def e8():
+    """Only real membership-changing uncertainty becomes a small quick-check set."""
+    from shortlist import quick_checks,priority_ids
+    counts={}
+    for region in REGIONS:
+        table=run(region)[0].table
+        checks=quick_checks(table);base=set(priority_ids(table))
+        assert 0<len(checks)<=8
+        for check in checks.itertuples():
+            assert check.tract_id in base
+            assert set(check.lower_top10)!=base or set(check.upper_top10)!=base
+        counts[region]=len(checks)
+    result=pytest('tests/test_shortlist.py::test_answer_first_ui_and_quick_challenge_refresh_actual_top_ten','tests/test_shortlist.py::test_stale_quick_form_cannot_vote_on_the_next_neighborhood')
+    return f'Pristine quick checks {counts}; all have real ±90% poverty-MOE membership witnesses; capped at 8, not refilled; actual UI challenge replaces a candidate without changing source estimates; stale targets are rejected. {result}'
+
+
 def main():
     ap=argparse.ArgumentParser();ap.add_argument('--only',default='');ap.add_argument('--skip-gemini',action='store_true');ap.add_argument('--gemini-n',type=int,default=1)
     args=ap.parse_args();only=set(args.only.split(',')) if args.only else set()
-    suites=[(1,'Rules / schema acceptance',e1),(2,'Real-data integrity / coverage',e2),(3,'Independent source checks',e3),(4,'Rank / confidence / sensitivity',e4),(5,'Offline report faithfulness',lambda:e5(args.skip_gemini,max(1,args.gemini_n))),(6,'Human review / audit',e6),(7,'End-to-end / export replay',e7)]
+    suites=[(1,'Rules / schema acceptance',e1),(2,'Real-data integrity / coverage',e2),(3,'Independent source checks',e3),(4,'Rank / confidence / sensitivity',e4),(5,'Offline report faithfulness',lambda:e5(args.skip_gemini,max(1,args.gemini_n))),(6,'Human review / audit',e6),(7,'End-to-end / export replay',e7),(8,'Answer-first / sensitive quick checks',e8)]
     start=time.monotonic()
     for id,name,fn in suites:
         if only and str(id) not in only: continue

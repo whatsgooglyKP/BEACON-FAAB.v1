@@ -1,8 +1,8 @@
 # Beacon · Evidence Review
 
-**Load → Review → Use:** a public-data prototype built for Beacon, DevFest Florida 2026, DataKind Challenge 2. This is **not an official DataKind product**.
+**Top 10 → Quick checks → Advanced review:** a public-data prototype built for Beacon, DevFest Florida 2026, DataKind Challenge 2. This is **not an official DataKind product**.
 
-Food-access teams need more than a map: they need to know which evidence is usable, why a signal was flagged, and how teammates reached a decision. This application safely standardizes public files, exposes uncertainty, and keeps a simple explained dashboard after human review. It does **not** predict shortages or route food.
+Food-access teams need more than a map: they need to know which evidence is usable, why a signal was flagged, and how teammates reached a decision. This application safely standardizes public files, starts with an explicitly unreviewed top ten, and offers a few consequential quick checks plus the complete reviewed-only dashboard. It does **not** predict shortages or route food.
 
 ## Run locally
 
@@ -29,11 +29,13 @@ The supplied source files are **not redistributed in this repo**. Obtain them fr
 
 No address-level retailer join, private upload, financial-challenge file, or inventory is needed. A missing required file or changed schema fails visibly instead of generating demonstration numbers. `data_manifest.json` records the source hashes and scope used for verification.
 
-## The workflow
+## The advanced workflow
+
+The default landing view is the explained top ten and map. Open **Advanced / full review** to use the complete workflow below.
 
 1. **Load:** choose Central Florida (Lake, Orange, Osceola, Seminole), NYC (five boroughs), or Salt Lake + Tooele. See units, periods, coverage, raw hashes and the exact definition before proceeding.
 2. **Review:** safe formatting and documented missing-code handling are automatic and logged. Everything uncertain stays visible with a reason, action confidence, original cell/year/universe, and Accept/Reject. Source-backed numeric Edit is available on actual value/exclusion proposals; interpretation edits belong in tract notes, not fabricated statistics. Every human decision needs a display name and reason.
-3. **Use:** the dashboard remains: explained rank, evidence-quality label, simple point map, and resource-finder links. **Only fully reviewed tracts appear in the default shortlist.** A separate, explicitly unreviewed preview keeps uncertain neighborhoods visible. The score never claims an operational action is approved.
+3. **Use:** the dashboard remains: explained rank, evidence-quality label, simple point map, and resource-finder links. **Only fully reviewed tracts appear by default in this advanced dashboard** (not the explicitly unreviewed landing preview). A separate, explicitly unreviewed preview keeps uncertain neighborhoods visible. The score never claims an operational action is approved.
 
 ### Collaboration and recommendation controls
 
@@ -57,21 +59,35 @@ Add tract notes; confirm/challenge an inferred need; approve/reject/replace a pr
 
 ```bash
 .venv/bin/python -m pytest -q tests
-.venv/bin/python -m evals.run                 # seven mandatory suites; live Gemini separately
+.venv/bin/python -m evals.run                 # eight mandatory suites; live Gemini separately
 .venv/bin/python -m evals.run --skip-gemini   # explicitly offline
 .venv/bin/python -m evals.run --only 5        # report/fallback and optional model
 ```
 
 [Latest scorecard](evals/results/latest.md) · [How the evaluations work](EVALS.md) · [Architecture and file tour](docs/ARCHITECTURE.md) · [Approved redesign](REDESIGN_PLAN.md) · [Requirements completion notes](docs/IMPLEMENTATION_STATUS.md).
 
-Optional `GEMINI_API_KEY` is read only from the environment. The opt-in chat prototype uses `gemini-3.8-flash`, a 150-second timeout, and exact paragraph semantic validation. It can explain a fixed public evidence packet and resource finders, **not** freely generate facts, clean values, compute ranks or resolve votes. Every failure has an immediately usable deterministic fallback. Do not commit a key or `.env` file.
+Optional `GEMINI_API_KEY` is read only from the environment. Reports and chat show the built-in write-up immediately, without making a model request. The explicit **Generate AI summary (optional, Gemini)** / **Generate AI answer (optional, Gemini)** buttons use `gemini-3.8-flash` in the background with a **20-second total wall-clock cap**, one SDK attempt (no retries), and exact paragraph semantic validation. The transport timeout is at most 19 seconds; a 19.5-second result deadline leaves a rendering margin below 20 seconds. Late results are discarded. It can explain a fixed public evidence packet and resource finders, **not** freely generate facts, clean values, compute ranks or resolve votes. On timeout, 503, invalid output or any error, the built-in text stays visible and a friendly note says the AI summary is unavailable. No spinner blocks the UI. Do not commit a key or `.env` file.
 
 ## Screenshots
 
-[Load](screenshots/redesign/01_load.png) · [Review a flag](screenshots/redesign/02_review.png) · [Disagreement](screenshots/redesign/02b_disagreement.png) · [Priority list](screenshots/redesign/03_use_list.png) · [Map](screenshots/redesign/03b_use_map.png) · [Explained tract](screenshots/redesign/03c_explained_tract.png). Screenshots use real public data and a separately labeled **simulated-reviewer demo workspace**, not practitioner validation.
+[Landing top 10](screenshots/redesign/00_landing_top10.png) · [Landing map](screenshots/redesign/00a_landing_map.png) · [Quick checks](screenshots/redesign/00b_quick_checks.png) · [After a decision](screenshots/redesign/00c_after_decision.png) · [Advanced](screenshots/redesign/00d_advanced.png) · [Built-in summary](screenshots/redesign/04_builtin_summary.png) · [Built-in chat](screenshots/redesign/05_builtin_chat.png) · [Load](screenshots/redesign/01_load.png) · [Review a flag](screenshots/redesign/02_review.png) · [Disagreement](screenshots/redesign/02b_disagreement.png) · [Priority list](screenshots/redesign/03_use_list.png) · [Map](screenshots/redesign/03b_use_map.png) · [Explained tract](screenshots/redesign/03c_explained_tract.png). Screenshots use real public data and a separately labeled **simulated-reviewer demo workspace**, not practitioner validation.
 
 ## Branding and preserved versions
 
 Beacon design tokens follow the supplied April 2026 guidelines: navy headings, blue controls, orange calls to action, semantic alert colors with labels/icons. Avenir is **not bundled**; CSS declares an Arial/sans-serif fallback and Menlo/monospace for IDs. No official logo artwork is reproduced or recolored. Sources: [brief](https://docs.google.com/document/d/1UFeoveMyn0UYYCc3oj4fVDRtXSA5nHvSzRTJfswc_Do/edit), [Appendix B](https://docs.google.com/document/d/1L25DTxI31BlrH3QvB7k8H0rt6eowMiYA3YqHEwfJer0/edit), [brand guidelines](https://drive.google.com/file/d/1KZY4wAevNOpc0kg6owQqYE42hqKYrB2J/view).
 
 `app_v0_dashboard.py` remains the original seven-tab backup. `archive/` preserves the first cleaner, its tests and its historical evals; `build_data.py`, `routing.py`, `logic.py`, example inventory and older processed assets are **legacy reference only**, not used by the redesigned app or current evals. Their old assumptions are not the current analytical contract. No deployment is performed by this build.
+
+### Plain-language display
+
+Tables use friendly indicator names, readable review statuses, and one-decimal percentages. Internal IDs and hashes are hidden from normal tables; originals and full-precision values remain unchanged in evidence details and exports. Review opens with one short explanation, while counts and technical reasoning are expandable.
+
+## Start with an answer, not a cleaning queue
+
+Each community opens on ten automatically cleaned priority neighborhoods, a one-line reason and evidence-confidence label for each, and the map. The banner explicitly says the list is **automatically cleaned, not yet checked by your team**. This is a starting answer—not confirmed need or an approved service plan. Local source preparation is automatic; there is no manual cleaning step or model dependency.
+
+**Quick checks** surface at most eight current top-ten neighborhoods whose membership actually changes when poverty alone is varied within its published 90% margin of error and the regional score is recomputed. Pristine counts: **Central Florida 8 · NYC 5 · Salt Lake/Tooele 8**. These are a small starting set, not all possible uncertainties; other contenders, joint changes and access uncertainty remain advanced. Checks are not continually replenished after a decision.
+
+Accept keeps a candidate **with its uncertainty**, without imputing an endpoint or claiming a correction. Challenge sets it aside from the team's working top ten, brings in the next source-ranked candidate, and shows who left/entered. Both are audited team choices; original observations and analytical ranks stay unchanged. Team disagreements remain visible and lower confidence rather than silently removing records. A quick answer does not complete the full evidence review.
+
+Open **Advanced / full review** for the original Load → Review → Use workspace: all 18 rules, source coverage, notes, disagreements, audit log, reviewed-only dashboard and replayable export. No functionality was removed. The landing preview and reviewed-only dashboard are deliberately different views.

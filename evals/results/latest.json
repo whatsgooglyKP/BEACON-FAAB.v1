@@ -1,9 +1,9 @@
 {
-  "timestamp": "2026-11-07T19:35:35-05:00",
+  "timestamp": "2026-11-07T20:05:36-05:00",
   "timezone": "America/New_York (ET)",
-  "seconds": 132.7,
+  "seconds": 211.1,
   "summary": {
-    "PASS": 7,
+    "PASS": 8,
     "FAIL": 0,
     "SKIP": 1
   },
@@ -12,7 +12,7 @@
       "id": 1,
       "name": "Rules / schema acceptance",
       "status": "PASS",
-      "detail": "22 passed in 29.67s"
+      "detail": "38 passed in 82.04s (0:01:22)"
     },
     {
       "id": 2,
@@ -42,19 +42,25 @@
       "id": 5,
       "name": "Offline report faithfulness",
       "status": "PASS",
-      "detail": "Template indicator/geography/unit/year checks pass; simulated timeout uses identical fallback; swapped units/years and invented stock rejected"
+      "detail": "Instant default without client; nonblocking optional job and bounded hung-client fallback; template indicator/geography/unit/year checks pass; swapped units/years and invented stock rejected"
     },
     {
       "id": 6,
       "name": "Human review / audit",
       "status": "PASS",
-      "detail": "5 passed in 4.94s; full append history, both vote orders, stale save, restart, undo, explicit resolution/reopen, and export replay verified"
+      "detail": "5 passed in 5.10s; full append history, both vote orders, stale save, restart, undo, explicit resolution/reopen, and export replay verified"
     },
     {
       "id": 7,
       "name": "End-to-end / export replay",
       "status": "PASS",
       "detail": "fl: 3 UI steps, 490 export rows; nyc: 3 UI steps, 2327 export rows; slc: 3 UI steps, 268 export rows; UI disagreement/resolution exercised; replayed views exactly match; no dispatch or inventory upload"
+    },
+    {
+      "id": 8,
+      "name": "Answer-first / sensitive quick checks",
+      "status": "PASS",
+      "detail": "Pristine quick checks {'fl': 8, 'nyc': 5, 'slc': 8}; all have real \u00b190% poverty-MOE membership witnesses; capped at 8, not refilled; actual UI challenge replaces a candidate without changing source estimates; stale targets are rejected. 2 passed in 12.68s"
     }
   ]
 }

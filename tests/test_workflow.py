@@ -66,7 +66,7 @@ def test_template_and_model_fallback_are_semantically_gated():
         class models:
             @staticmethod
             def generate_content(**kwargs): raise RuntimeError('simulated 503')
-    text,mode=make_report(b,q,client_factory=Down)
+    text,mode=make_report(b,q,client_factory=Down,use_gemini=True)
     assert text==base and mode.startswith('template')
     assert not validate_generated(base.replace('ACS 2020–24','ACS 2010–14'),base)
     assert not validate_generated(base+' People qualify but not enrolled.',base)
@@ -80,7 +80,9 @@ def test_app_initial_load_is_redesigned():
     a=AppTest.from_file(str(__import__('pathlib').Path('app.py').resolve()),default_timeout=90).run()
     assert not a.exception
     assert any('Evidence Review' in t.value for t in a.title)
-    assert any('Step 1' in h.value for h in a.header)
+    assert any('Your top 10' in h.value for h in a.header)
+    a.radio(key='step').set_value('1 · Load').run()
+    assert not a.exception and any('Step 1' in h.value for h in a.header)
 
 
 
